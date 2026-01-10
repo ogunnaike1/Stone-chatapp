@@ -4,14 +4,23 @@ import { FaPlus } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import LogoutModal from "./LogoutModal";
 import { useNavigate } from "react-router-dom";
+import SettingsForm from "./SettingsForm";
+import { logout } from "../utils/auth";
+import { toast } from "react-toastify";
 
 
 const MessageList = () => {
-    const [showLogout, setShowLogout] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [showLogoutOption, setShowLogoutOption] = useState(false);
     const navigate = useNavigate();
 
     const handleLogout = () => {
-      navigate("/auth/login");
+      logout ();
+      toast.success("logout successful")
+      setTimeout(() => {
+        navigate("/auth/login");
+      }, 1000);
+     
     };
 
 
@@ -24,7 +33,7 @@ const MessageList = () => {
 
           <div className="flex gap-4 text-lg cursor-pointer">
             <FaPlus />
-            <span onClick={()=>setShowLogout(true)}><BsThreeDotsVertical /></span>
+            <span onClick={()=>setShowSettings(true)}><BsThreeDotsVertical /></span>
             
           </div>
         </div>
@@ -64,11 +73,19 @@ const MessageList = () => {
           </div>
         ))}
       </div>
-      {showLogout && (
-        <LogoutModal
-        onConfirm={handleLogout}
-        onCancel={() => setShowLogout(false)}
-      />
+ 
+
+        {showSettings && (
+         <SettingsForm onCloseSettings={() => setShowSettings(false)} onShowLogout ={() =>  setShowLogoutOption(true)} />
+
+      )
+      }
+
+      {showLogoutOption && (
+              <LogoutModal
+              onConfirm={handleLogout}
+              onCancel={() => setShowLogoutOption(false)}
+            />
 
       )
       }

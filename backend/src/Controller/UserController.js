@@ -3,6 +3,8 @@ const mongoose = require("mongoose")
 const userModel = require("../Model/UserModel")
 const bcrypt = require ("bcrypt")
 const jwt = require("jsonwebtoken");
+const cloudinary = require("../Utils/Cloudinary")
+
 
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
@@ -78,6 +80,46 @@ const LoginUser = async(req,res)=>{
 
 }
 
+const UploadProfilePic = async(req, res)=>{
+
+    try {
+        const { userId, image } = req.body; 
+
+        if (!userId || !image) {
+            return res.status(400).json({ message: "userId and image are required", status: false });
+          }
+
+          const profileImage = await cloudinary.uploader.upload(image, {
+            folder: "profile_pictures",
+          });
+
+          const updatedUser = await userModel.findByIdAndUpdate(
+            userId,
+            { profilePicture: profileImage.secure_url },
+            { new: true }
+          );
+
+          if (!updatedUser) {
+            return res.status(404).json({ message: "User not found", status: false });
+          }
+
+          return res.status(200).json({
+            message: "Profile picture updated successfully",
+            status: true,
+            user: {
+              id: updatedUser._id,
+              username: updatedUser.username,
+              email: updatedUser.email,
+              profilePicture: updatedUser.profilePicture,
+            },
+          });
+
+    } catch (error) {
+        console.error("UploadProfilePic error:", error);
+        return res.status(500).json({ message: "Server error", status: false });
+      }
+}
 
 
-module.exports = { SignUpUser, LoginUser };
+
+module.exports = { SignUpUser, LoginUser, UploadProfilePic };
