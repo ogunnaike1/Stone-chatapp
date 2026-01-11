@@ -112,7 +112,7 @@ const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
           initial={{ scale: 0.95, y: 30 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.95, y: 30 }}
-  
+          className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden"
         >
           {/* HEADER */}
           <div className="flex justify-between items-center px-6 py-4 border-b">
