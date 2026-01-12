@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { FaChevronRight } from "react-icons/fa6";
 import ChatInput from "./ChatInput";
 import Sidebar from "./Sidebar";
+import MessageBubble from "./MessageBubble"
 
 interface User {
   _id: string;
@@ -17,10 +18,37 @@ interface ChatRoomProps {
 const DEFAULT_AVATAR =
   "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
 
+interface Message {
+  sender: "me" | "other";
+  text: string;
+  time: string;
+}
+
+const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+const myAvatar = currentUser?.profilePicture || DEFAULT_AVATAR;
+
 const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
   const [showSideBar, setShowSideBar] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // If no user is selected, show a placeholder message
+  // Auto scroll to bottom when messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = (text: string) => {
+    if (!text.trim()) return; // prevent empty messages
+
+    const newMessage: Message = {
+      sender: "me",
+      text,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setMessages((prev) => [...prev, newMessage]);
+  };
+
   if (!selectedUser) {
     return (
       <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
@@ -55,14 +83,27 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
       <div className="bg-[#EDF0F9] h-[72vh] flex flex-col justify-between">
         {/* MESSAGES */}
         <div className="flex-1 px-10 py-6 overflow-y-auto space-y-4">
-          {/* Placeholder for now — messages will be dynamic */}
-          <p className="text-gray-500 text-center mt-10">
-            Chat with {selectedUser.username} will appear here.
-          </p>
+          {messages.length === 0 ? (
+            <p className="text-gray-500 text-center mt-10">
+              Chat with {selectedUser.username} will appear here.
+            </p>
+          ) : (
+            <>
+              {messages.map((msg, idx) => (
+                <MessageBubble
+                  key={idx}
+                  msg={msg}
+                  myAvatar={myAvatar}
+                  otherAvatar={selectedUser.profilePicture || DEFAULT_AVATAR}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </>
+          )}
         </div>
 
         {/* INPUT */}
-        <ChatInput />
+        <ChatInput onSend={handleSendMessage} />
       </div>
 
       {/* SIDEBAR */}
