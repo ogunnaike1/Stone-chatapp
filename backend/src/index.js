@@ -3,10 +3,13 @@ const path = require("path");
 const dotenv = require("dotenv"); 
 const cors = require("cors");
 const connectDB = require("./Dbconfig/dbconfig")
+const http = require("http");
+
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const app = express()
+const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
