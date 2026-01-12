@@ -14,7 +14,7 @@ const socketServer = (server) =>{
         // Join personal room
         socket.on("join", (userId) => {
           socket.join(userId);
-          
+          console.log(`User ${userId} joined their room`);
         });
     
         // Send message
