@@ -7,6 +7,7 @@ const cloudinary = require("../Utils/Cloudinary")
 
 
 
+
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
 const SignUpUser = async(req,res) =>{
@@ -121,5 +122,20 @@ const UploadProfilePic = async(req, res)=>{
 }
 
 
+const getAllUsers = async (req, res) => {
+    try {
+      const users = await userModel.find(
+        { _id: { $ne: req.user.id } },
+        "username email profilePicture socketId"
+      );
+  
+      res.status(200).json(users);
+    } catch (err) {
+      console.error("Get users error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
 
-module.exports = { SignUpUser, LoginUser, UploadProfilePic };
+
+module.exports = { SignUpUser, LoginUser, UploadProfilePic, getAllUsers };

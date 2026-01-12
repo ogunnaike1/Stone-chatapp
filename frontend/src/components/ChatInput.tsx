@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { IoSendSharp } from "react-icons/io5";
 
 const ChatInput = () => {
+
+  const [text, setText] = useState("");
   return (
       <div className="w-full">
     <div className="flex w-[80%] py-[5px] shadow-lg mx-auto items-center rounded-[8px] px-[20px] bg-white space-x-2 border border-transparent focus-within:border-blue-500 transition-colors duration-200">

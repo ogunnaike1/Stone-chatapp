@@ -1,28 +1,60 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IoMdSearch } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import LogoutModal from "./LogoutModal";
 import { useNavigate } from "react-router-dom";
-import SettingsForm from "./SettingsForm";
-import { logout } from "../utils/auth";
 import { toast } from "react-toastify";
 
+import LogoutModal from "./LogoutModal";
+import SettingsForm from "./SettingsForm";
+import { logout } from "../utils/auth";
+import api from "../api/axios";
 
-const MessageList = () => {
-    const [showSettings, setShowSettings] = useState(false);
-    const [showLogoutOption, setShowLogoutOption] = useState(false);
-    const navigate = useNavigate();
+export interface User {
+    _id: string;
+    username: string;
+    profilePicture?: string;
+  }
 
-    const handleLogout = () => {
-      logout ();
-      toast.success("logout successful")
-      setTimeout(() => {
-        navigate("/auth/login");
-      }, 1000);
-     
+interface MessageListProps {
+    onSelectUser: (user: User) => void; // expects a User
+  }
+
+
+const DEFAULT_AVATAR =
+  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+
+
+const MessageList: React.FC<MessageListProps> = ({ onSelectUser }) => {
+  const [showSettings, setShowSettings] = useState(false);
+  const [showLogoutOption, setShowLogoutOption] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await api.get("/user/users");
+        setUsers(res.data);
+      } catch (error) {
+        toast.error("Failed to load chats");
+      } finally {
+        setLoading(false);
+      }
     };
 
+    fetchUsers();
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logout successful");
+    setTimeout(() => {
+      navigate("/auth/login");
+    }, 1000);
+  };
 
   return (
     <div className="lg:w-[30vw] w-full border-r">
@@ -33,8 +65,9 @@ const MessageList = () => {
 
           <div className="flex gap-4 text-lg cursor-pointer">
             <FaPlus />
-            <span onClick={()=>setShowSettings(true)}><BsThreeDotsVertical /></span>
-            
+            <span onClick={() => setShowSettings(true)}>
+              <BsThreeDotsVertical />
+            </span>
           </div>
         </div>
 
@@ -50,45 +83,55 @@ const MessageList = () => {
 
       {/* CHAT LIST */}
       <div className="bg-[#F3F4F6] h-[85vh] overflow-y-auto">
-        {[1, 2, 3, 4, 5].map((_, i) => (
-          <div
-            key={i}
-            className="flex justify-between items-center px-4 py-3 hover:bg-gray-200 cursor-pointer border-b"
-          >
-            <div className="flex gap-3 items-center">
-              <img
-                src="https://randomuser.me/api/portraits/men/32.jpg"
-                className="h-10 w-10 rounded-full"
-                alt="user"
-              />
-              <div>
-                <p className="font-semibold">Username</p>
-                <p className="text-sm text-gray-500 truncate">
-                  Last message preview goes here
-                </p>
+        {loading ? (
+          <p className="text-center mt-6 text-gray-500">Loading chats...</p>
+        ) : users.length === 0 ? (
+          <p className="text-center mt-6 text-gray-500">No users found</p>
+        ) : (
+          users.map((user) => (
+            <div
+              key={user._id}
+              className="flex justify-between items-center px-4 py-3 hover:bg-gray-200 cursor-pointer border-b"
+              onClick={() => onSelectUser(user)}
+            >
+              <div className="flex gap-3 items-center">
+                <img
+                  src={
+                    user.profilePicture ||
+                    DEFAULT_AVATAR
+                  }
+                  className="h-10 w-10 rounded-full"
+                  alt={user.username}
+                />
+                <div>
+                  <p className="font-semibold">{user.username}</p>
+                  <p className="text-sm text-gray-500 truncate">
+                    Tap to start chatting
+                  </p>
+                </div>
               </div>
+
+              <span className="text-xs text-blue-500">Now</span>
             </div>
-
-            <span className="text-xs text-blue-500">12:45</span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
- 
 
-        {showSettings && (
-         <SettingsForm onCloseSettings={() => setShowSettings(false)} onShowLogout ={() =>  setShowLogoutOption(true)} />
+      {/* SETTINGS */}
+      {showSettings && (
+        <SettingsForm
+          onCloseSettings={() => setShowSettings(false)}
+          onShowLogout={() => setShowLogoutOption(true)}
+        />
+      )}
 
-      )
-      }
-
+      {/* LOGOUT MODAL */}
       {showLogoutOption && (
-              <LogoutModal
-              onConfirm={handleLogout}
-              onCancel={() => setShowLogoutOption(false)}
-            />
-
-      )
-      }
+        <LogoutModal
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutOption(false)}
+        />
+      )}
     </div>
   );
 };
