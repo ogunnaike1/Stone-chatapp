@@ -12,7 +12,7 @@ const Test = () => {
 
     // listen for messages from server
     socket.on("receive_message", (data) => {
-  
+      console.log("📩 Message from server:", data);
     });
 
     // cleanup to avoid duplicate listeners
