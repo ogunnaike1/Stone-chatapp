@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
+import Test from './components/Test'
 import './App.css'
 
 function App() {
@@ -33,6 +34,14 @@ function App() {
           <Route path="/chathome" element={
             <ProtectedRoute>
                <ChatHome/>
+            </ProtectedRoute>
+           
+            }>
+
+            </Route>
+            <Route path="/test" element={
+            <ProtectedRoute>
+               <Test/>
             </ProtectedRoute>
            
             }>

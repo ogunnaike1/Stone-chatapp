@@ -2,6 +2,9 @@ import MessageList from "../components/MessageList";
 import ChatRoom from "../components/ChatRoom";
 import { useState } from "react";
 import type { User } from "../components/MessageList";
+import { socket } from "../utils/socket";
+
+
 
 const ChatHome = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);

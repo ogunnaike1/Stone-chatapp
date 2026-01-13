@@ -9,6 +9,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
   const [text, setText] = useState("");
 
   const handleSend = () => {
+    
     if (!text.trim()) return;
     onSend(text);
     setText(""); // clear input

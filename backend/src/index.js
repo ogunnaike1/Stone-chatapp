@@ -19,14 +19,16 @@ app.use("/user", require("./Route/UserRoute"));
 const port = 5002
 
 
+
 app.get("/",(req,res)=>{
     res.send('connected')
 })
 
+require("./Socket")(server)
 
 connectDB()
 
-app.listen(port, ()=>{
+server.listen(port, ()=>{
     console.log(`app is running on port ${port}`)
 
 })
