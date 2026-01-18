@@ -44,7 +44,8 @@ const Test = () => {
   const joinRoom = ()=>{
     if (roomNumber === null) return;
     socket.emit("join_room", roomNumber);
-   
+    console.log("📦 Joined room:", roomNumber);
+
   }
 
   return (
