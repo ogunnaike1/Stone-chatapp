@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { socket } from "../utils/socket";
 
 const Test = () => {
-    const [messages, setMessage] = useState("")
+    const [message, setMessage] = useState("")
     const [display, setDisplay] = useState("")
+    const [roomNumber, setRoomNumber] = useState<number | null>(null);
   useEffect(() => {
     // confirm socket connection
     socket.on("connect", () => {
@@ -32,18 +33,29 @@ const Test = () => {
 
   const sendMessage = () => {
     socket.emit("send_message", {
-      message: messages
+      message,
+      roomNumber
     });
     setMessage("")
 
     console.log("📤 Message sent");
   };
 
+  const joinRoom = ()=>{
+    if (roomNumber === null) return;
+    socket.emit("join_room", roomNumber);
+   
+
+  }
+
   return (
     <div className="flex items-center flex-col" style={{ padding: "20px" }}>
       <h2>Socket Test</h2>
 
-      <input onChange={(e)=>setMessage(e.target.value)} value={messages} type="text" className="border-blue-400 border-2 " />
+      <input type="text" placeholder="join room" onChange={(e)=>setRoomNumber(e.target.value)} />
+      <button onClick={joinRoom}>join</button>
+
+      <input onChange={(e)=>setMessage(e.target.value)} value={message} type="text" className="border-blue-400 border-2 " />
 
       <button
         onClick={sendMessage}

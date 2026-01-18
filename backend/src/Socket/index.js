@@ -13,21 +13,19 @@ module.exports = (server) => {
   io.on("connection", (socket) => {
     console.log("✅ User connected:", socket.id);
 
-    socket.on("send_message", (data)=>{
-        console.log("message from cilent", data)
-        socket.broadcast.emit("receive_message", data)
-    })
+    socket.on("join_room", (roomNumber) => {
+      socket.join(roomNumber);
+      console.log(`📦 Joined room number: ${roomNumber}`);
+    });
 
-//     socket.on("send_message", (data) => {
-//       console.log("📩 Message from client:", data);
-
-//       socket.emit("receive_message", {
-//         reply: "Hello from server 👋",
-//       });
-//     });
-
-//     socket.on("disconnect", () => {
-//       console.log("❌ User disconnected:", socket.id);
-//     });
+    socket.on("send_message", ({ roomNumber, message }) => {
+      io.to(roomNumber).emit("receive_message", {
+        message,
+        roomNumber,
+      });
+    });
   });
+
+
+  
 };
