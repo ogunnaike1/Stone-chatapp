@@ -3,7 +3,8 @@ import { RxHamburgerMenu } from "react-icons/rx";
 import { FaChevronRight } from "react-icons/fa6";
 import ChatInput from "./ChatInput";
 import Sidebar from "./Sidebar";
-import MessageBubble from "./MessageBubble"
+import MessageBubble from "./MessageBubble";
+import { socket } from "../utils/socket";
 
 interface User {
   _id: string;
@@ -15,14 +16,14 @@ interface ChatRoomProps {
   selectedUser: User | null;
 }
 
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-
 interface Message {
   sender: "me" | "other";
   text: string;
   time: string;
 }
+
+const DEFAULT_AVATAR =
+  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
 
 const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -33,22 +34,91 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll to bottom when messages update
+  /* ===============================
+     RESET CHAT WHEN USER CHANGES
+  =============================== */
+
+  useEffect(() => {
+    socket.on("receiveMessage", (msg) => {
+      console.log("🔥 RECEIVED:", msg);
+    });
+  }, []);
+  
+  useEffect(() => {
+    setMessages([]);
+  }, [selectedUser?._id]);
+
+  /* ===============================
+     RECEIVE SOCKET MESSAGES
+  =============================== */
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    const handleReceive = (message: any) => {
+      const isCurrentChat =
+        (message.senderId === currentUser._id &&
+          message.receiverId === selectedUser._id) ||
+        (message.senderId === selectedUser._id &&
+          message.receiverId === currentUser._id);
+
+      if (!isCurrentChat) return;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender:
+            message.senderId === currentUser._id ? "me" : "other",
+          text: message.text,
+          time: new Date(message.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+    };
+
+    socket.on("receiveMessage", handleReceive);
+
+    return () => {
+      socket.off("receiveMessage", handleReceive);
+    };
+  }, [selectedUser?._id]);
+
+  /* ===============================
+     AUTO SCROLL TO LAST MESSAGE
+  =============================== */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  /* ===============================
+     SEND MESSAGE
+  =============================== */
   const handleSendMessage = (text: string) => {
-    if (!text.trim()) return; // prevent empty messages
+    if (!text.trim() || !selectedUser) return;
 
-    const newMessage: Message = {
+    const tempMessage: Message = {
       sender: "me",
       text,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
-    setMessages((prev) => [...prev, newMessage]);
+
+    // show immediately
+    setMessages((prev) => [...prev, tempMessage]);
+
+    socket.emit("sendMessage", {
+      senderId: currentUser._id,
+      receiverId: selectedUser._id,
+      text,
+    });
   };
 
+  /* ===============================
+     EMPTY STATE
+  =============================== */
   if (!selectedUser) {
     return (
       <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
@@ -74,7 +144,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
             className="h-10 w-10 rounded-full"
             alt={selectedUser.username}
           />
-          <span className="font-semibold">{selectedUser.username}</span>
+          <span className="font-semibold">
+            {selectedUser.username}
+          </span>
           <FaChevronRight />
         </div>
       </div>
@@ -94,7 +166,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
                   key={idx}
                   msg={msg}
                   myAvatar={myAvatar}
-                  otherAvatar={selectedUser.profilePicture || DEFAULT_AVATAR}
+                  otherAvatar={
+                    selectedUser.profilePicture || DEFAULT_AVATAR
+                  }
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -107,7 +181,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
       </div>
 
       {/* SIDEBAR */}
-      {showSideBar && <Sidebar onClose={() => setShowSideBar(false)} />}
+      {showSideBar && (
+        <Sidebar onClose={() => setShowSideBar(false)} />
+      )}
     </div>
   );
 };

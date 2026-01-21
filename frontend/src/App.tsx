@@ -7,7 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
-import Test from './components/Test'
+
 import './App.css'
 
 function App() {
@@ -37,15 +37,6 @@ function App() {
             </ProtectedRoute>
            
             }>
-
-            </Route>
-            <Route path="/test" element={
-            <ProtectedRoute>
-               <Test/>
-            </ProtectedRoute>
-           
-            }>
-
             </Route>
          </Routes>
          <ToastContainer position="top-right" autoClose={3000} />
