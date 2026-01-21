@@ -61,7 +61,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
         (message.senderId === selectedUser._id &&
           message.receiverId === currentUser._id);
 
-      if (!isCurrentChat) return;
 
       setMessages((prev) => [
         ...prev,
