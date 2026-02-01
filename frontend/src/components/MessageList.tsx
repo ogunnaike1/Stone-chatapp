@@ -1,81 +1,65 @@
-import { useEffect, useState } from "react";
+import React, { useState, useMemo } from "react";
 import { IoMdSearch } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-
 import LogoutModal from "./LogoutModal";
-import SettingsForm from "./SettingsForm";
 import { logout } from "../utils/auth";
-import api from "../api/axios";
+import type { Conversation } from "./ChatRoom";
+import SettingsForm from "./SettingsForm";
 
-export interface User {
-    _id: string;
-    username: string;
-    profilePicture?: string;
-  }
+type MessageListProps = {
+  conversations: Conversation[];
+  setActiveChat: (chat: Conversation) => void;
+};
 
-interface MessageListProps {
-    onSelectUser: (user: User) => void; // expects a User
-  }
-
-
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-
-
-const MessageList: React.FC<MessageListProps> = ({ onSelectUser }) => {
+const MessageList = ({ conversations, setActiveChat }: MessageListProps) => {
+  const [showLogout, setShowLogout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showLogoutOption, setShowLogoutOption] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await api.get("/user/users");
-        setUsers(res.data);
-      } catch (error) {
-        toast.error("Failed to load chats");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, []);
 
   const handleLogout = () => {
     logout();
-    toast.success("Logout successful");
-    setTimeout(() => {
-      navigate("/auth/login");
-    }, 1000);
+    navigate("/auth/login");
   };
+
+  /**
+   * ✅ Filter and sort conversations by search term and latest message time
+   */
+  const sortedConversations = useMemo(() => {
+    return [...conversations]
+      .filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => {
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return new Date(b.time).getTime() - new Date(a.time).getTime();
+      });
+  }, [conversations, searchTerm]);
 
   return (
     <div className="lg:w-[30vw] w-full border-r">
       {/* HEADER */}
       <div className="bg-blue-700 pb-4">
-        <div className="text-white flex w-[90%] pt-3 mx-auto justify-between">
+        <div className="text-white flex w-[90%] pt-3 mx-auto justify-between items-center">
           <span className="text-xl font-bold">STONECHAT</span>
 
           <div className="flex gap-4 text-lg cursor-pointer">
             <FaPlus />
-            <span onClick={() => setShowSettings(true)}>
+            <button onClick={() =>  setShowSettings(true)}>
               <BsThreeDotsVertical />
-            </span>
+            </button>
           </div>
         </div>
 
         {/* SEARCH */}
         <div className="w-[90%] mx-auto mt-4 bg-white h-10 px-4 flex items-center rounded-2xl">
-          <IoMdSearch />
+          <IoMdSearch className="text-gray-400 text-lg" />
           <input
-            className="w-full ml-2 outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full ml-2 outline-none text-sm"
             placeholder="Search for a chat"
           />
         </div>
@@ -83,54 +67,48 @@ const MessageList: React.FC<MessageListProps> = ({ onSelectUser }) => {
 
       {/* CHAT LIST */}
       <div className="bg-[#F3F4F6] h-[85vh] overflow-y-auto">
-        {loading ? (
-          <p className="text-center mt-6 text-gray-500">Loading chats...</p>
-        ) : users.length === 0 ? (
-          <p className="text-center mt-6 text-gray-500">No users found</p>
-        ) : (
-          users.map((user) => (
+        {sortedConversations.length > 0 ? (
+          sortedConversations.map(user => (
             <div
-              key={user._id}
+              key={user.name}
+              onClick={() => setActiveChat(user)}
               className="flex justify-between items-center px-4 py-3 hover:bg-gray-200 cursor-pointer border-b"
-              onClick={() => onSelectUser(user)}
             >
               <div className="flex gap-3 items-center">
                 <img
-                  src={
-                    user.profilePicture ||
-                    DEFAULT_AVATAR
-                  }
-                  className="h-10 w-10 rounded-full"
-                  alt={user.username}
+                  src={user.avatar}
+                  className="h-10 w-10 rounded-full object-cover"
+                  alt={user.name}
                 />
-                <div>
-                  <p className="font-semibold">{user.username}</p>
-                  <p className="text-sm text-gray-500 truncate">
-                    Tap to start chatting
+                <div className="overflow-hidden">
+                  <p className="font-semibold truncate">{user.name}</p>
+                  <p className="text-sm text-gray-500 truncate max-w-[150px]">
+                    {user.lastMessage || "No messages yet"}
                   </p>
                 </div>
               </div>
 
-              <span className="text-xs text-blue-500">Now</span>
+              <span className="text-xs text-blue-500 whitespace-nowrap">
+                {user.time || ""}
+              </span>
             </div>
           ))
+        ) : (
+          <p className="text-center text-gray-400 mt-4">
+            No chats found
+          </p>
         )}
       </div>
 
-      {/* SETTINGS */}
+      {/* LOGOUT MODAL */}
       {showSettings && (
-        <SettingsForm
-          onCloseSettings={() => setShowSettings(false)}
-          onShowLogout={() => setShowLogoutOption(true)}
+        <SettingsForm onCloseSettings={()=>setShowSettings(false)} onShowLogout={()=> setShowLogout(true)}        
         />
       )}
 
-      {/* LOGOUT MODAL */}
-      {showLogoutOption && (
-        <LogoutModal
-          onConfirm={handleLogout}
-          onCancel={() => setShowLogoutOption(false)}
-        />
+        {showLogout && (
+        <LogoutModal onConfirm={handleLogout} 
+        onCancel={()=>setShowLogout(false)} />
       )}
     </div>
   );

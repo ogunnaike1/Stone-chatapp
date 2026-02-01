@@ -1,52 +1,54 @@
 const { Server } = require("socket.io");
+const User = require("../Model/UserModel");
+const Message = require("../Model/MessageModel");
 
 module.exports = (server) => {
   const io = new Server(server, {
-    cors: {
-      origin: "*", // your frontend URL in production
-      methods: ["GET", "POST"],
-    },
+    cors: { origin: "*" },
   });
 
-  // Map to store userId -> socketId
-  const onlineUsers = new Map();
-
   io.on("connection", (socket) => {
-    console.log("✅ Socket connected:", socket.id);
+    console.log("🟢 Connected:", socket.id);
 
-    // Join room
-    socket.on("join", (userId) => {
-      onlineUsers.set(userId, socket.id);
-      socket.userId = userId;
-      console.log("👤 User joined:", userId);
+    // ---------------- REGISTER USER ----------------
+    // user sends: { userId, avatar }
+    socket.on("register_user", async ({ userId, avatar }) => {
+      if (!userId) return;
+
+      await User.findByIdAndUpdate(userId, { socketId: socket.id, avatar }, { new: true });
+      console.log(`✅ User ${userId} registered with socket ${socket.id}`);
     });
 
-    // Send message
-    socket.on("sendMessage", ({ senderId, receiverId, text }) => {
-      const message = {
+    // ---------------- SEND MESSAGE ----------------
+    // message data: { senderId, receiverId, text, time }
+    socket.on("send_message", async ({ senderId, receiverId, text, time }) => {
+      if (!senderId || !receiverId || !text) return;
+
+      // Save message in DB
+      const message = await Message.create({ senderId, receiverId, text, time });
+
+      // Emit to receiver if online
+      const receiver = await User.findById(receiverId);
+      if (receiver?.socketId) {
+        io.to(receiver.socketId).emit("receive_message", {
+          senderId,
+          text,
+          time,
+        });
+      }
+
+      // Emit to sender to sync their chat immediately
+      io.to(socket.id).emit("receive_message", {
         senderId,
-        receiverId,
         text,
-        createdAt: new Date(),
-      };
-
-      // Emit to sender and receiver
-      if (onlineUsers.has(receiverId)) {
-        io.to(onlineUsers.get(receiverId)).emit("receiveMessage", message);
-      }
-      if (onlineUsers.has(senderId)) {
-        io.to(onlineUsers.get(senderId)).emit("receiveMessage", message);
-      }
-
-      console.log("📨 Message sent:", message);
+        time,
+      });
     });
 
-    // Disconnect
-    socket.on("disconnect", () => {
-      if (socket.userId) {
-        onlineUsers.delete(socket.userId);
-        console.log("❌ User disconnected:", socket.userId);
-      }
+    // ---------------- DISCONNECT ----------------
+    socket.on("disconnect", async () => {
+      await User.findOneAndUpdate({ socketId: socket.id }, { socketId: null });
+      console.log(`🔴 Disconnected: ${socket.id}`);
     });
   });
 };

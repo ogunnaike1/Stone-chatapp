@@ -19,7 +19,6 @@ app.use("/user", require("./Route/UserRoute"));
 const port = 5002
 
 
-
 app.get("/",(req,res)=>{
     res.send('connected')
 })

@@ -1,24 +1,21 @@
-// routes/MessagesRoute.js
 const express = require("express");
 const router = express.Router();
-const Message = require("../Model/UserModel");
+const Message = require("../Model/MessageModel");
 const verifyToken = require("../middleware/authMiddleware");
 
-// GET messages between two users (PROTECTED)
-router.get("/:from/:to", verifyToken, async (req, res) => {
-  const { from, to } = req.params;
+router.get("/:userId/:otherUserId", verifyToken, async (req, res) => {
+  const { userId, otherUserId } = req.params;
 
   try {
     const messages = await Message.find({
       $or: [
-        { from, to },
-        { from: to, to: from }
-      ]
-    }).sort({ time: 1 });
+        { senderId: userId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: userId },
+      ],
+    }).sort({ createdAt: 1 });
 
-    res.status(200).json(messages);
+    res.json(messages);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });

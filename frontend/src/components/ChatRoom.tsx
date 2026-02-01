@@ -1,125 +1,137 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { FaChevronRight } from "react-icons/fa6";
+import { useNavigate } from "react-router-dom";
 import ChatInput from "./ChatInput";
 import Sidebar from "./Sidebar";
-import MessageBubble from "./MessageBubble";
+import LogoutModal from "./LogoutModal";
+import { logout } from "../utils/auth";
 import { socket } from "../utils/socket";
+import { formatTime } from "../utils/formatTime";
 
-interface User {
-  _id: string;
-  username: string;
-  profilePicture?: string;
-}
-
-interface ChatRoomProps {
-  selectedUser: User | null;
-}
-
-interface Message {
-  sender: "me" | "other";
+export type Message = {
   text: string;
+  sender: "me" | "other";
   time: string;
-}
+};
 
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+export type Conversation = {
+  name: string;
+  avatar: string;
+  lastMessage: string;
+  time: string;
+  messages: Message[];
+};
 
-const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+type MessageBubbleProps = {
+  msg: Message;
+  otherAvatar: string;
+  myAvatar: string;
+};
 
-const myAvatar = currentUser?.profilePicture || DEFAULT_AVATAR;
+const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
+  const isMe = msg.sender === "me";
 
-const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
-  const [showSideBar, setShowSideBar] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  return (
+    <div className={`flex items-end mb-2 ${isMe ? "justify-end" : "justify-start"}`}>
+      {!isMe && (
+        <img src={otherAvatar} className="h-8 w-8 rounded-full" />
+      )}
 
-  /* ===============================
-     RESET CHAT WHEN USER CHANGES
-  =============================== */
+      <div
+        className={`max-w-xs px-4 py-2 rounded-lg break-words ${
+          isMe
+            ? "bg-blue-500 text-white rounded-br-none ml-2"
+            : "bg-white text-gray-800 rounded-bl-none mr-2"
+        }`}
+      >
+        {msg.text}
+        <div className="text-[10px] text-gray-400 mt-1 text-right">
+          {msg.time}
+        </div>
+      </div>
 
-  useEffect(() => {
-    socket.on("receiveMessage", (msg) => {
-      console.log("🔥 RECEIVED:", msg);
-    });
-  }, []);
-  
-  useEffect(() => {
-    setMessages([]);
-  }, [selectedUser?._id]);
+      {isMe && (
+        <img src={myAvatar} className="h-8 w-8 rounded-full" />
+      )}
+    </div>
+  );
+};
 
-  /* ===============================
-     RECEIVE SOCKET MESSAGES
-  =============================== */
-  useEffect(() => {
-    if (!selectedUser) return;
+type ChatRoomProps = {
+  activeChat: Conversation | null;
+  conversations: Conversation[];
+  setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
+  loggedInUser: string;
+  myAvatar: string;
+};
 
-    const handleReceive = (message: any) => {
-      const isCurrentChat =
-        (message.senderId === currentUser._id &&
-          message.receiverId === selectedUser._id) ||
-        (message.senderId === selectedUser._id &&
-          message.receiverId === currentUser._id);
+const ChatRoom = ({
+  activeChat,
+  conversations,
+  setConversations,
+  loggedInUser,
+  myAvatar,
+}: ChatRoomProps) => {
+  const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+  const [openedSidebar, setOpenedSidebar] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
 
-      if (!isCurrentChat) return;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender:
-            message.senderId === currentUser._id ? "me" : "other",
-          text: message.text,
-          time: new Date(message.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
-    };
+  const currentChat = conversations.find(
+    (c) => c.name === activeChat?.name
+  );
 
-    socket.on("receiveMessage", handleReceive);
-
-    return () => {
-      socket.off("receiveMessage", handleReceive);
-    };
-  }, [selectedUser?._id]);
-
-  /* ===============================
-     AUTO SCROLL TO LAST MESSAGE
-  =============================== */
+  /* AUTO SCROLL */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [currentChat?.messages]);
 
-  /* ===============================
-     SEND MESSAGE
-  =============================== */
-  const handleSendMessage = (text: string) => {
-    if (!text.trim() || !selectedUser) return;
+  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) =>
+    setMessage(e.target.value);
 
-    const tempMessage: Message = {
-      sender: "me",
-      text,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+  /* ✅ SEND MESSAGE */
+  const handleSend = () => {
+    if (!message.trim() || !currentChat) return;
 
-    // show immediately
-    setMessages((prev) => [...prev, tempMessage]);
+    const time = formatTime();
 
-    socket.emit("sendMessage", {
-      senderId: currentUser._id,
-      receiverId: selectedUser._id,
-      text,
+    // optimistic update
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.name === currentChat.name
+          ? {
+              ...conv,
+              lastMessage: message,
+              time,
+              messages: [
+                ...conv.messages,
+                { text: message, sender: "me", time },
+              ],
+            }
+          : conv
+      )
+    );
+
+    socket.emit("send_message", {
+      from: loggedInUser,
+      to: currentChat.name,
+      text: message,
+      time,
     });
+
+    setMessage("");
   };
 
-  /* ===============================
-     EMPTY STATE
-  =============================== */
-  if (!selectedUser) {
+  const handleLogout = () => {
+    logout();
+    navigate("/auth/login");
+  };
+
+  if (!currentChat) {
     return (
       <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
         Select a conversation to start chatting
@@ -133,56 +145,52 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedUser }) => {
       <div className="h-[16vh] bg-blue-500 flex items-center justify-between px-6 text-white">
         <span
           className="text-2xl cursor-pointer"
-          onClick={() => setShowSideBar(true)}
+          onClick={() => setOpenedSidebar(true)}
         >
           <RxHamburgerMenu />
         </span>
 
         <div className="flex items-center gap-3">
           <img
-            src={selectedUser.profilePicture || DEFAULT_AVATAR}
+            src={currentChat.avatar}
             className="h-10 w-10 rounded-full"
-            alt={selectedUser.username}
           />
-          <span className="font-semibold">
-            {selectedUser.username}
-          </span>
+          <span>{currentChat.name}</span>
           <FaChevronRight />
         </div>
       </div>
 
-      {/* CHAT BODY */}
+      {/* MESSAGES */}
       <div className="bg-[#EDF0F9] h-[72vh] flex flex-col justify-between">
-        {/* MESSAGES */}
         <div className="flex-1 px-10 py-6 overflow-y-auto space-y-4">
-          {messages.length === 0 ? (
-            <p className="text-gray-500 text-center mt-10">
-              Chat with {selectedUser.username} will appear here.
-            </p>
-          ) : (
-            <>
-              {messages.map((msg, idx) => (
-                <MessageBubble
-                  key={idx}
-                  msg={msg}
-                  myAvatar={myAvatar}
-                  otherAvatar={
-                    selectedUser.profilePicture || DEFAULT_AVATAR
-                  }
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </>
-          )}
+          {currentChat.messages.map((msg, i) => (
+            <MessageBubble
+              key={i}
+              msg={msg}
+              otherAvatar={currentChat.avatar}
+              myAvatar={myAvatar}
+            />
+          ))}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* INPUT */}
-        <ChatInput onSend={handleSendMessage} />
+        <ChatInput
+          message={message}
+          textareaRef={textareaRef}
+          handleInput={handleInput}
+          onSend={handleSend}
+        />
       </div>
 
-      {/* SIDEBAR */}
-      {showSideBar && (
-        <Sidebar onClose={() => setShowSideBar(false)} />
+      {openedSidebar && (
+        <Sidebar onClose={() => setOpenedSidebar(false)} />
+      )}
+
+      {showLogout && (
+        <LogoutModal
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogout(false)}
+        />
       )}
     </div>
   );
