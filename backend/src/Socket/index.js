@@ -16,7 +16,7 @@ module.exports = (server) => {
       if (!userId) return;
 
       await User.findByIdAndUpdate(userId, { socketId: socket.id, avatar }, { new: true });
-      console.log(`✅ User ${userId} registered with socket ${socket.id}`);
+   
     });
 
     // ---------------- SEND MESSAGE ----------------
