@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, type ChangeEvent } from "react";
+import React, { useRef, useEffect, type ChangeEvent, useState } from "react";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { FaChevronRight } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
@@ -9,24 +9,35 @@ import { logout } from "../utils/auth";
 import { socket } from "../utils/socket";
 import { formatTime } from "../utils/formatTime";
 
+/* ================= TYPES ================= */
+
 export type Message = {
   text: string;
   sender: "me" | "other";
   time: string;
+  id: string; // unique ID for each message
 };
 
 export type Conversation = {
+  _id: string;
   name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
+  avatar?: string;
+  lastMessage?: string;
+  time?: string;
   messages: Message[];
 };
 
+/* ================= CONSTANTS ================= */
+
+const FALLBACK_AVATAR =
+  "https://randomuser.me/api/portraits/lego/1.jpg";
+
+/* ================= MESSAGE BUBBLE ================= */
+
 type MessageBubbleProps = {
   msg: Message;
-  otherAvatar: string;
-  myAvatar: string;
+  otherAvatar?: string;
+  myAvatar?: string;
 };
 
 const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
@@ -35,7 +46,12 @@ const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
   return (
     <div className={`flex items-end mb-2 ${isMe ? "justify-end" : "justify-start"}`}>
       {!isMe && (
-        <img src={otherAvatar} className="h-8 w-8 rounded-full" />
+        <img
+          src={otherAvatar || FALLBACK_AVATAR}
+          onError={(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
+          alt="User avatar"
+          className="h-8 w-8 rounded-full"
+        />
       )}
 
       <div
@@ -45,25 +61,29 @@ const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
             : "bg-white text-gray-800 rounded-bl-none mr-2"
         }`}
       >
-        {msg.text}
-        <div className="text-[10px] text-gray-400 mt-1 text-right">
-          {msg.time}
-        </div>
+        <p>{msg.text}</p>
+        <div className="text-[10px] text-gray-400 mt-1 text-right">{msg.time}</div>
       </div>
 
       {isMe && (
-        <img src={myAvatar} className="h-8 w-8 rounded-full" />
+        <img
+          src={myAvatar || FALLBACK_AVATAR}
+          alt="My avatar"
+          className="h-8 w-8 rounded-full"
+        />
       )}
     </div>
   );
 };
+
+/* ================= CHAT ROOM ================= */
 
 type ChatRoomProps = {
   activeChat: Conversation | null;
   conversations: Conversation[];
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   loggedInUser: string;
-  myAvatar: string;
+  myAvatar?: string;
 };
 
 const ChatRoom = ({
@@ -81,56 +101,87 @@ const ChatRoom = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const currentChat = conversations.find(
-    (c) => c.name === activeChat?.name
-  );
+  const currentChat = conversations.find((c) => c._id === activeChat?._id);
 
-  /* AUTO SCROLL */
+  /* ---------------- AUTO SCROLL ---------------- */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat?.messages]);
 
-  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) =>
-    setMessage(e.target.value);
+  /* ---------------- SOCKET RECEIVE MESSAGE ---------------- */
+  useEffect(() => {
+    const handleReceive = (data: any) => {
+      const { from, text, createdAt, messageId } = data;
+      const time = formatTime(new Date(createdAt));
 
-  /* ✅ SEND MESSAGE */
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv._id === from) {
+            // Avoid duplicate
+            const exists = conv.messages.some((m) => m.id === messageId);
+            if (exists) return conv;
+
+            return {
+              ...conv,
+              lastMessage: text,
+              time,
+              messages: [...conv.messages, { text, sender: "other", time, id: messageId }],
+            };
+          }
+          return conv;
+        })
+      );
+    };
+
+    socket.on("receive_message", handleReceive);
+
+    return () => {
+      socket.off("receive_message", handleReceive);
+    };
+  }, [setConversations]);
+
+  /* ---------------- INPUT ---------------- */
+  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value);
+
+  /* ---------------- SEND MESSAGE ---------------- */
   const handleSend = () => {
     if (!message.trim() || !currentChat) return;
 
+    const text = message.trim();
     const time = formatTime();
+    const messageId = Date.now().toString(); // simple unique ID
 
-    // optimistic update
+    // Optimistic update
     setConversations((prev) =>
       prev.map((conv) =>
-        conv.name === currentChat.name
+        conv._id === currentChat._id
           ? {
               ...conv,
-              lastMessage: message,
+              lastMessage: text,
               time,
-              messages: [
-                ...conv.messages,
-                { text: message, sender: "me", time },
-              ],
+              messages: [...conv.messages, { text, sender: "me", time, id: messageId }],
             }
           : conv
       )
     );
 
     socket.emit("send_message", {
-      from: loggedInUser,
-      to: currentChat.name,
-      text: message,
-      time,
+      senderId: loggedInUser,
+      receiverId: currentChat._id,
+      text,
+      messageId, // send unique ID to backend
     });
 
     setMessage("");
   };
 
+  /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     logout();
     navigate("/auth/login");
   };
 
+  /* ---------------- EMPTY STATE ---------------- */
   if (!currentChat) {
     return (
       <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
@@ -139,21 +190,21 @@ const ChatRoom = ({
     );
   }
 
+  /* ---------------- RENDER ---------------- */
   return (
     <div className="w-[70vw] hidden lg:block">
       {/* HEADER */}
       <div className="h-[16vh] bg-blue-500 flex items-center justify-between px-6 text-white">
-        <span
-          className="text-2xl cursor-pointer"
-          onClick={() => setOpenedSidebar(true)}
-        >
+        <span className="text-2xl cursor-pointer" onClick={() => setOpenedSidebar(true)}>
           <RxHamburgerMenu />
         </span>
 
         <div className="flex items-center gap-3">
           <img
-            src={currentChat.avatar}
+            src={currentChat.avatar || FALLBACK_AVATAR}
+            onError={(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
             className="h-10 w-10 rounded-full"
+            alt="Chat avatar"
           />
           <span>{currentChat.name}</span>
           <FaChevronRight />
@@ -163,9 +214,9 @@ const ChatRoom = ({
       {/* MESSAGES */}
       <div className="bg-[#EDF0F9] h-[72vh] flex flex-col justify-between">
         <div className="flex-1 px-10 py-6 overflow-y-auto space-y-4">
-          {currentChat.messages.map((msg, i) => (
+          {currentChat.messages.map((msg) => (
             <MessageBubble
-              key={i}
+              key={msg.id}
               msg={msg}
               otherAvatar={currentChat.avatar}
               myAvatar={myAvatar}
@@ -182,16 +233,8 @@ const ChatRoom = ({
         />
       </div>
 
-      {openedSidebar && (
-        <Sidebar onClose={() => setOpenedSidebar(false)} />
-      )}
-
-      {showLogout && (
-        <LogoutModal
-          onConfirm={handleLogout}
-          onCancel={() => setShowLogout(false)}
-        />
-      )}
+      {openedSidebar && <Sidebar onClose={() => setOpenedSidebar(false)} />}
+      {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
     </div>
   );
 };

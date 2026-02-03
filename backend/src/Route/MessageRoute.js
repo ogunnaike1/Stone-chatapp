@@ -20,4 +20,22 @@ router.get("/:userId/:otherUserId", verifyToken, async (req, res) => {
   }
 });
 
+// routes/messages.js
+router.get("/all/:userId", verifyToken, async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Get all messages where the user is sender or receiver
+    const messages = await Message.find({
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    }).sort({ createdAt: 1 });
+
+    res.json(messages);
+  } catch (err) {
+    console.error(err);
+    
+  }
+});
+
+
 module.exports = router;

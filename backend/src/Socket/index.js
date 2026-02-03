@@ -10,45 +10,38 @@ module.exports = (server) => {
   io.on("connection", (socket) => {
     console.log("🟢 Connected:", socket.id);
 
-    // ---------------- REGISTER USER ----------------
-    // user sends: { userId, avatar }
-    socket.on("register_user", async ({ userId, avatar }) => {
+    // REGISTER USER
+    socket.on("register_user", async (userId) => {
       if (!userId) return;
-
-      await User.findByIdAndUpdate(userId, { socketId: socket.id, avatar }, { new: true });
-      console.log(`✅ User ${userId} registered with socket ${socket.id}`);
+      await User.findByIdAndUpdate(userId, { socketId: socket.id });
+      console.log("✅ User registered:", userId);
     });
 
-    // ---------------- SEND MESSAGE ----------------
-    // message data: { senderId, receiverId, text, time }
-    socket.on("send_message", async ({ senderId, receiverId, text, time }) => {
-      if (!senderId || !receiverId || !text) return;
+    // SEND MESSAGE
+    socket.on("send_message", async ({ senderId, receiverId, text, messageId }) => {
+      if (!senderId || !receiverId || !text || !messageId) return;
 
-      // Save message in DB
-      const message = await Message.create({ senderId, receiverId, text, time });
+      // Save in DB
+      const message = await Message.create({ senderId, receiverId, text });
 
-      // Emit to receiver if online
+      const payload = {
+        from: senderId,
+        to: receiverId,
+        text,
+        messageId, // unique ID for frontend
+        createdAt: message.createdAt,
+      };
+
+      // Emit only to receiver
       const receiver = await User.findById(receiverId);
       if (receiver?.socketId) {
-        io.to(receiver.socketId).emit("receive_message", {
-          senderId,
-          text,
-          time,
-        });
+        io.to(receiver.socketId).emit("receive_message", payload);
       }
-
-      // Emit to sender to sync their chat immediately
-      io.to(socket.id).emit("receive_message", {
-        senderId,
-        text,
-        time,
-      });
     });
 
-    // ---------------- DISCONNECT ----------------
     socket.on("disconnect", async () => {
       await User.findOneAndUpdate({ socketId: socket.id }, { socketId: null });
-      console.log(`🔴 Disconnected: ${socket.id}`);
+      console.log("🔴 Disconnected:", socket.id);
     });
   });
 };
