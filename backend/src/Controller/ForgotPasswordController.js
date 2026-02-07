@@ -54,3 +54,4 @@ const ForgotPassword = async (req, res) => {
     res.status(500).json({ message: "Server error", status: false });
   }
 };
+module.exports =  ForgotPassword

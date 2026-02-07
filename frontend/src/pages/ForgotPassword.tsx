@@ -2,6 +2,8 @@ import { useState } from "react";
 import axios from "axios";
 import { Link as RouterLink } from "react-router-dom";
 import { FaEnvelope, FaArrowLeft, FaPhone } from "react-icons/fa";
+import api from "../api/axios";
+import { toast } from "react-toastify";
 
 const ForgotPasswordForm = () => {
   const [email, setEmail] = useState("");
@@ -17,13 +19,11 @@ const ForgotPasswordForm = () => {
 
     try {
       setLoading(true);
-      await axios.post("http://localhost:5000/api/forgot-password", { email });
-      alert("Check your email for reset link");
+      await api.post("/user/forgot-password", { email });
+      toast.success("Check your email for reset link");
       setEmail("");
     } catch (error: any) {
-      alert(
-        error.response?.data?.message || "Something went wrong. Try again."
-      );
+      toast.error(error.response?.data?.message || "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
