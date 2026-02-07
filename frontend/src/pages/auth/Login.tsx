@@ -72,6 +72,16 @@ const Login = () => {
         className="w-full mb-4 border px-3 py-2 rounded"
         onChange={handleChange}
         />
+
+      <div className="text-right mb-4">
+        <Link
+          to="/forgot-password"
+          className="text-sm text-blue-500 hover:underline"
+        >
+          Forgot password?
+        </Link>
+      </div>
+
   
       <button onClick={handleLogin} disabled={loading} className="w-full py-2 rounded text-white bg-blue-600 hover:bg-blue-700">
       {loading ? "Logging in..." : "Login"}

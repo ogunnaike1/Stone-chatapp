@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import MessageList from "../components/MessageList";
-import ChatRoom, { type Conversation, type Message } from "../components/ChatRoom";
+import ChatRoom, {
+  type Conversation,
+  type Message,
+} from "../components/ChatRoom";
 import { socket } from "../utils/socket";
 import api from "../api/axios";
 
 /* ================= TYPES ================= */
 
 type SocketMessage = {
+  messageId: string;
   from: string;
   to: string;
   text: string;
@@ -24,15 +28,10 @@ const ChatHome = () => {
   /* ---------- USER ---------- */
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-
- 
+  
 
   const loggedInUserId: string | null = user?.id ?? null;
-
- 
   const myAvatar = user?.profilePicture || FALLBACK_AVATAR;
-
-  console.log(user.profilePicture)
 
   /* ---------- STATE ---------- */
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -41,33 +40,70 @@ const ChatHome = () => {
   /* ================= LOAD USERS ================= */
   useEffect(() => {
     if (!loggedInUserId) return;
-  
+
+    const loadUsers = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await api.get("/user/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const users: Conversation[] = res.data
+          .filter((u: any) => u._id !== loggedInUserId)
+          .map((u: any) => ({
+            _id: u._id,
+            name: u.username,
+            avatar: u.profilePicture || FALLBACK_AVATAR,
+            lastMessage: "",
+            time: "",
+            messages: [],
+          }));
+
+        setConversations(users);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+      }
+    };
+
+    loadUsers();
+  }, [loggedInUserId]);
+
+  /* ================= LOAD ALL MESSAGES ================= */
+  useEffect(() => {
+    if (!loggedInUserId || conversations.length === 0) return;
+
     const loadAllMessages = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await api.get(`/api/messages/all/${loggedInUserId}`, {
+
+        const res = await api.get(`/messages/all/${loggedInUserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-  
-        const allMessages: Message[] = res.data.map((msg: any) => ({
-          text: msg.text,
-          sender: msg.senderId === loggedInUserId ? "me" : "other",
-          time: new Date(msg.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          id: msg._id, // use MongoDB _id for unique ID
-        }));
-  
-        // Merge messages into conversations
+
+        const rawMessages = res.data;
+
         setConversations((prev) =>
           prev.map((conv) => {
-            const convMessages = allMessages.filter(
-              (m) =>
-                (m.sender === "me" && msg.receiverId === conv._id) ||
-                (m.sender === "other" && msg.senderId === conv._id)
-            );
-  
+            const convMessages: Message[] = rawMessages
+              .filter(
+                (msg: any) =>
+                  (msg.senderId === loggedInUserId &&
+                    msg.receiverId === conv._id) ||
+                  (msg.senderId === conv._id &&
+                    msg.receiverId === loggedInUserId)
+              )
+              .map((msg: any) => ({
+                id: msg._id,
+                text: msg.text,
+                sender:
+                  msg.senderId === loggedInUserId ? "me" : "other",
+                time: new Date(msg.createdAt).toLocaleTimeString(
+                  [],
+                  { hour: "2-digit", minute: "2-digit" }
+                ),
+              }));
+
             return {
               ...conv,
               messages: convMessages,
@@ -80,99 +116,55 @@ const ChatHome = () => {
         console.error("Failed to load messages:", err);
       }
     };
-  
+
     loadAllMessages();
-  }, [loggedInUserId, conversations]);
-  
+  }, [loggedInUserId, conversations.length]);
 
   /* ================= SOCKET JOIN ================= */
   useEffect(() => {
     if (!loggedInUserId) return;
     socket.emit("register_user", loggedInUserId);
   }, [loggedInUserId]);
-  
 
   /* ================= RECEIVE MESSAGE ================= */
   useEffect(() => {
     const handleReceiveMessage = (msg: SocketMessage) => {
       const incoming: Message = {
+        id: msg.messageId,
         text: msg.text,
         sender: msg.from === loggedInUserId ? "me" : "other",
-        time: new Date(msg.createdAt).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        id: msg.messageId, // unique ID to prevent duplicates
+        time: new Date(msg.createdAt).toLocaleTimeString(
+          [],
+          { hour: "2-digit", minute: "2-digit" }
+        ),
       };
-    
+
       setConversations((prev) =>
         prev.map((conv) => {
-          if (conv._id === msg.from || conv._id === msg.to) {
-            // Avoid duplicates
-            if (conv.messages.some((m) => m.id === msg.messageId)) return conv;
-    
-            return {
-              ...conv,
-              lastMessage: msg.text,
-              time: incoming.time,
-              messages: [...conv.messages, incoming],
-            };
-          }
-          return conv;
+          if (conv._id !== msg.from && conv._id !== msg.to)
+            return conv;
+
+          if (conv.messages.some((m) => m.id === msg.messageId))
+            return conv;
+
+          return {
+            ...conv,
+            lastMessage: msg.text,
+            time: incoming.time,
+            messages: [...conv.messages, incoming],
+          };
         })
       );
     };
-    
-  
+
     socket.on("receive_message", handleReceiveMessage);
-    return () => socket.off("receive_message", handleReceiveMessage);
+    return () =>
+      socket.off("receive_message", handleReceiveMessage);
   }, [loggedInUserId]);
-  
 
   /* ================= SELECT CHAT ================= */
-  const handleSelectChat = async (chat: Conversation) => {
-    if (!loggedInUserId) return;
-
+  const handleSelectChat = (chat: Conversation) => {
     setActiveChat(chat);
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const res = await api.get(
-        `/api/messages/${loggedInUserId}/${chat._id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const messages: Message[] = res.data.map((msg: any) => ({
-        text: msg.text,
-        sender: msg.senderId === loggedInUserId ? "me" : "other",
-        time: new Date(msg.createdAt).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      }));
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv._id === chat._id
-            ? {
-                ...conv,
-                messages,
-                lastMessage: messages.at(-1)?.text || "",
-                time: messages.at(-1)?.time || "",
-              }
-            : conv
-        )
-      );
-
-      setActiveChat((prev) =>
-        prev ? { ...prev, messages } : prev
-      );
-    } catch (err) {
-      console.error("Failed to load messages:", err);
-    }
   };
 
   /* ================= RENDER ================= */

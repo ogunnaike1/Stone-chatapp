@@ -25,6 +25,7 @@ const DEFAULT_PROFILE_PIC =
 const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
   const [activeTab, setActiveTab] = useState("Profile");
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -38,10 +39,16 @@ const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
   useEffect(() => {
     // Load profile picture from localStorage if available
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    console.log(user)
     if (user?.profilePicture) {
       setProfilePic(user.profilePicture);
     }
+
+    if (user?.username) {
+      setUsername(user.username);
+    }
   }, []);
+ 
 
 
   const handleRemoveProfilePic = () => {
@@ -221,6 +228,7 @@ const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
                 
                     {/* Info & actions */}
                     <div className="text-center sm:text-left space-y-2">
+                    <p className="text-[20px] text-blue-500 font-medium">{username}</p>
                       <p className="text-gray-700 font-medium">Change your profile photo</p>
                       <p className="text-sm text-gray-400">JPG, PNG or WEBP · Max 5MB</p>
                       <div className="flex gap-3 justify-center sm:justify-start">

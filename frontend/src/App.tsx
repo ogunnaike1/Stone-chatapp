@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
+import ForgotPasswordForm from './pages/ForgotPassword'
 
 import './App.css'
 
@@ -31,6 +32,15 @@ function App() {
             }>
 
             </Route>
+
+            <Route
+               path="/forgot-password"
+               element={
+                  <PublicRoute>
+                     <ForgotPasswordForm />
+                  </PublicRoute>
+               }
+               />
           <Route path="/chathome" element={
             <ProtectedRoute>
                <ChatHome/>

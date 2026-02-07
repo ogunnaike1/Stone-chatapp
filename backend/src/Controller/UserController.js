@@ -121,6 +121,47 @@ const UploadProfilePic = async(req, res)=>{
       }
 }
 
+const ResetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: "Password is required", status: false });
+    }
+
+    const user = await userModel.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired token",
+        status: false,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Password reset successful",
+      status: true,
+    });
+
+  } catch (error) {
+    console.error("ResetPassword error:", error);
+    res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+
 
 const getAllUsers = async (req, res) => {
     try {
@@ -138,4 +179,4 @@ const getAllUsers = async (req, res) => {
   
 
 
-module.exports = { SignUpUser, LoginUser, UploadProfilePic, getAllUsers };
+module.exports = { SignUpUser, LoginUser, UploadProfilePic, getAllUsers, ResetPassword };
