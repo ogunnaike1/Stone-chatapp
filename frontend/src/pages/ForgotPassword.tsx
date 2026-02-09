@@ -13,7 +13,7 @@ const ForgotPasswordForm = () => {
     e.preventDefault();
 
     if (!email) {
- 
+      toast("Please enter your email");
       return;
     }
 
