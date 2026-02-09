@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const userModel = require("../Model/UserModel")
+
 
 const ForgotPassword = async (req, res) => {
   try {
