@@ -6,7 +6,6 @@ import api from "../api/axios";
 
 interface SettingsFormProps {
   onCloseSettings: () => void;
-  onShowLogout: () => void;
 }
 
 const tabs = [
@@ -22,7 +21,7 @@ const tabs = [
 const DEFAULT_PROFILE_PIC =
   "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
 
-const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
+const SettingsForm = ({ onCloseSettings}: SettingsFormProps) => {
   const [activeTab, setActiveTab] = useState("Profile");
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -153,12 +152,7 @@ const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
                 ))}
               </div>
 
-              <button
-                onClick={onShowLogout}
-                className="mt-4 px-4 py-2 rounded-lg text-left text-red-600 hover:bg-red-50 font-medium"
-              >
-                Log Out
-              </button>
+      
             </aside>
 
             {/* CONTENT */}
@@ -179,12 +173,7 @@ const SettingsForm = ({ onCloseSettings, onShowLogout }: SettingsFormProps) => {
                     {tab}
                   </button>
                 ))}
-                <button
-                  onClick={onShowLogout}
-                  className="px-4 py-2 rounded-full bg-red-100 text-red-600 text-sm font-medium"
-                >
-                  Log Out
-                </button>
+              
               </div>
 
               <AnimatePresence mode="wait">

@@ -176,7 +176,119 @@ const getAllUsers = async (req, res) => {
       res.status(500).json({ message: "Server error" });
     }
   };
+
+  const getMyFriends = async (req, res) => {
+    try {
+      const user = await userModel
+        .findById(req.user.id)
+        .populate("friends", "username profilePicture");
+  
+      if (!user) return res.status(404).json({ message: "User not found" });
+  
+      res.status(200).json(user.friends);
+    } catch (err) {
+      console.error("getMyFriends error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
+  
+  const searchUsers = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { query } = req.query;
+  
+      if (!query || !query.trim()) {
+        return res.status(200).json([]);
+      }
+  
+      const me = await userModel.findById(userId);
+  
+      const friends = me.friends || [];
+      const sent = me.friendRequestsSent || [];
+  
+      const users = await userModel.find({
+        _id: {
+          $ne: userId,
+          $nin: [...friends, ...sent],
+        },
+        username: { $regex: query, $options: "i" },
+      }).select("username profilePicture");
+  
+      res.status(200).json(users);
+    } catch (err) {
+      console.error("Search users error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+
+  const addFriend = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { friendId } = req.body;
+  
+      if (!friendId) {
+        return res.status(400).json({ message: "friendId required" });
+      }
+  
+      if (userId === friendId) {
+        return res.status(400).json({ message: "You cannot add yourself" });
+      }
+  
+      const user = await userModel.findById(userId);
+      const friend = await userModel.findById(friendId);
+  
+      if (!friend) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      if (user.friends.includes(friendId)) {
+        return res.status(400).json({ message: "Already friends" });
+      }
+  
+      user.friends.push(friendId);
+      friend.friends.push(userId);
+  
+      await user.save();
+      await friend.save();
+  
+      res.status(200).json({ message: "Friend added", friendId });
+    } catch (err) {
+      console.error("Add friend error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
+  const removeFriend = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { friendId } = req.params;
+  
+      const user = await userModel.findById(userId);
+      const friend = await userModel.findById(friendId);
+  
+      if (!friend) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      user.friends = user.friends.filter(
+        (id) => id.toString() !== friendId
+      );
+      friend.friends = friend.friends.filter(
+        (id) => id.toString() !== userId
+      );
+  
+      await user.save();
+      await friend.save();
+  
+      res.status(200).json({ message: "Friend removed", friendId });
+    } catch (err) {
+      console.error("Remove friend error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  };
+  
   
 
 
-module.exports = { SignUpUser, LoginUser, UploadProfilePic, getAllUsers, ResetPassword };
+module.exports = { SignUpUser, LoginUser, UploadProfilePic, getAllUsers, ResetPassword, searchUsers,  addFriend , removeFriend, getMyFriends };

@@ -7,6 +7,8 @@ import LogoutModal from "./LogoutModal";
 import { logout } from "../utils/auth";
 import type { Conversation } from "./ChatRoom";
 import SettingsForm from "./SettingsForm";
+import ChatDropdown from "./ChatDropDown";
+import FindFriendsModal from "./FindFriendsModal";
 
 type MessageListProps = {
   conversations: Conversation[];
@@ -15,7 +17,9 @@ type MessageListProps = {
 
 const MessageList = ({ conversations, setActiveChat }: MessageListProps) => {
   const [showLogout, setShowLogout] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showDropDown, setShowDropDown] = useState(false);
+  const [showFindFriend, setShowFindFriend] = useState(false);
+  const [showSetting, setShowSettings] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -45,12 +49,31 @@ const MessageList = ({ conversations, setActiveChat }: MessageListProps) => {
         <div className="text-white flex w-[90%] pt-3 mx-auto justify-between items-center">
           <span className="text-xl font-bold">STONECHAT</span>
 
-          <div className="flex gap-4 text-lg cursor-pointer">
+          <div className="flex gap-4 text-lg cursor-pointer relative">
             <FaPlus />
-            <button onClick={() =>  setShowSettings(true)}>
+
+            <button onClick={() => setShowDropDown(prev => !prev)}>
               <BsThreeDotsVertical />
             </button>
+
+            <ChatDropdown
+              isOpen={showDropDown}
+             onFindFriends={()=>{
+              setShowDropDown(false); 
+              setShowFindFriend(true)
+
+             }  }
+              onSettings={() => {
+                setShowDropDown(false);
+                setShowSettings(true);
+              }}
+              onLogout={() => {
+                setShowDropDown(false);
+                setShowLogout(true);
+              }}
+            />
           </div>
+
         </div>
 
         {/* SEARCH */}
@@ -101,11 +124,22 @@ const MessageList = ({ conversations, setActiveChat }: MessageListProps) => {
       </div>
 
       {/* LOGOUT MODAL */}
-      {showSettings && (
-        <SettingsForm onCloseSettings={()=>setShowSettings(false)} onShowLogout={()=> setShowLogout(true)}        
-        />
-      )}
+  
 
+      {showFindFriend && (
+          <FindFriendsModal
+          isOpen={showFindFriend}
+          onClose={() => setShowFindFriend(false)}
+        />
+        )
+
+        }
+        
+        {showSetting && (
+          <SettingsForm onCloseSettings={() => setShowSettings(false)}  />
+        )
+
+        }
         {showLogout && (
         <LogoutModal onConfirm={handleLogout} 
         onCancel={()=>setShowLogout(false)} />

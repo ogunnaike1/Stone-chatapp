@@ -45,9 +45,10 @@ const ChatHome = () => {
       try {
         const token = localStorage.getItem("token");
 
-        const res = await api.get("/user/users", {
+        const res = await api.get("/user/friends", {
           headers: { Authorization: `Bearer ${token}` },
         });
+      
 
         const users: Conversation[] = res.data
           .filter((u: any) => u._id !== loggedInUserId)
