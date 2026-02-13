@@ -44,7 +44,7 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setFriendRequests(requestRes.data);
+      
 
       // 3️⃣ All Users
       try {
