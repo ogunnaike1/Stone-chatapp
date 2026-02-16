@@ -32,3 +32,4 @@ const acceptFriendRequest = async (req, res) => {
     }
   };
   
+  module.exports = acceptFriendRequest

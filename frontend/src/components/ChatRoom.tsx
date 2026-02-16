@@ -8,6 +8,10 @@ import LogoutModal from "./LogoutModal";
 import { logout } from "../utils/auth";
 import { socket } from "../utils/socket";
 import { formatTime } from "../utils/formatTime";
+import ChatMenuDropdown from "./ChatMenuDropDown";
+import ReportUserModal from "./ReportUserModal";
+import { toast } from "react-toastify";
+import api from "../api/axios";
 
 /* ================= TYPES ================= */
 
@@ -97,6 +101,8 @@ const ChatRoom = ({
   const [message, setMessage] = useState("");
   const [openedSidebar, setOpenedSidebar] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +181,54 @@ const ChatRoom = ({
     setMessage("");
   };
 
+  const handleClearChat = async () => {
+    if (!activeChat) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const userId = loggedInUser;
+
+      await api.delete(`/messages/clear/${userId}/${activeChat._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("Chat cleared successfully!");
+
+      // Clear messages locally
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === activeChat._id ? { ...conv, messages: [], lastMessage: "", time: "" } : conv
+        )
+      );
+    } catch (err) {
+      console.error("Clear chat error:", err);
+      toast.error("Failed to clear chat");
+    }
+  }
+
+  
+  const handleRemoveFriend = async () => {
+    if (!activeChat) return;
+  
+    try {
+      const token = localStorage.getItem("token");
+      await api.delete(`/user/friends/remove/${activeChat._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      // Remove from conversations list
+      setConversations((prev) =>
+        prev.filter((c) => c._id !== activeChat._id)
+      );
+  
+      // Optionally show toast
+      toast.success("Friend removed successfully");
+  
+    } catch (err) {
+      toast.error("Failed to remove friend")
+      console.error("Failed to remove friend:", err);
+    }
+  };
   /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     logout();
@@ -195,9 +249,23 @@ const ChatRoom = ({
     <div className="w-[70vw] hidden lg:block">
       {/* HEADER */}
       <div className="h-[16vh] bg-blue-500 flex items-center justify-between px-6 text-white">
-        <span className="text-2xl cursor-pointer" onClick={() => setOpenedSidebar(true)}>
+      <div className="relative">
+        <span
+          className="text-2xl cursor-pointer"
+          onClick={() => setShowMenu((prev) => !prev)
+          }>
           <RxHamburgerMenu />
         </span>
+
+        <ChatMenuDropdown
+          isOpen={showMenu}
+          onClose={() => setShowMenu(false)}
+          onRemoveFriend={handleRemoveFriend}
+          onReport={() => setShowReportModal(true)}
+          onClearChats={handleClearChat}
+        />
+
+      </div>
 
         <div className="flex items-center gap-3">
           <img
@@ -232,8 +300,17 @@ const ChatRoom = ({
           onSend={handleSend}
         />
       </div>
+       
+      <ReportUserModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(reason, details) => {
+            console.log(reason, details);
 
-      {openedSidebar && <Sidebar onClose={() => setOpenedSidebar(false)} />}
+            // call backend API
+          }}
+        />
+    
       {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
     </div>
   );

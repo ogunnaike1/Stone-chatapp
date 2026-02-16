@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
+import ChatRoom, { type Conversation, type Message } from "../components/ChatRoom";
 import MessageList from "../components/MessageList";
-import ChatRoom, {
-  type Conversation,
-  type Message,
-} from "../components/ChatRoom";
 import { socket } from "../utils/socket";
 import api from "../api/axios";
 
-/* ================= TYPES ================= */
+/* ================= CONSTANTS ================= */
+const FALLBACK_AVATAR =
+  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 type SocketMessage = {
   messageId: string;
@@ -17,40 +16,30 @@ type SocketMessage = {
   createdAt: string;
 };
 
-/* ================= CONSTANTS ================= */
-
-const FALLBACK_AVATAR =
-  "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-
-/* ================= COMPONENT ================= */
-
 const ChatHome = () => {
-  /* ---------- USER ---------- */
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
-  
 
   const loggedInUserId: string | null = user?.id ?? null;
   const myAvatar = user?.profilePicture || FALLBACK_AVATAR;
 
-  /* ---------- STATE ---------- */
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
 
-  /* ================= LOAD USERS ================= */
+  /* ================= LOAD FRIENDS + MESSAGES ================= */
   useEffect(() => {
     if (!loggedInUserId) return;
 
-    const loadUsers = async () => {
+    const loadConversations = async () => {
       try {
         const token = localStorage.getItem("token");
 
-        const res = await api.get("/user/friends", {
+        // 1️⃣ Load friends
+        const friendsRes = await api.get("/user/friends", {
           headers: { Authorization: `Bearer ${token}` },
         });
-      
 
-        const users: Conversation[] = res.data
+        const friends: Conversation[] = friendsRes.data
           .filter((u: any) => u._id !== loggedInUserId)
           .map((u: any) => ({
             _id: u._id,
@@ -61,65 +50,47 @@ const ChatHome = () => {
             messages: [],
           }));
 
-        setConversations(users);
-      } catch (err) {
-        console.error("Failed to load users:", err);
-      }
-    };
-
-    loadUsers();
-  }, [loggedInUserId]);
-
-  /* ================= LOAD ALL MESSAGES ================= */
-  useEffect(() => {
-    if (!loggedInUserId || conversations.length === 0) return;
-
-    const loadAllMessages = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const res = await api.get(`/messages/all/${loggedInUserId}`, {
+        // 2️⃣ Load all messages
+        const messagesRes = await api.get(`/messages/all/${loggedInUserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const rawMessages = res.data;
+        const rawMessages = messagesRes.data;
 
-        setConversations((prev) =>
-          prev.map((conv) => {
-            const convMessages: Message[] = rawMessages
-              .filter(
-                (msg: any) =>
-                  (msg.senderId === loggedInUserId &&
-                    msg.receiverId === conv._id) ||
-                  (msg.senderId === conv._id &&
-                    msg.receiverId === loggedInUserId)
-              )
-              .map((msg: any) => ({
-                id: msg._id,
-                text: msg.text,
-                sender:
-                  msg.senderId === loggedInUserId ? "me" : "other",
-                time: new Date(msg.createdAt).toLocaleTimeString(
-                  [],
-                  { hour: "2-digit", minute: "2-digit" }
-                ),
-              }));
+        // 3️⃣ Merge messages into friends
+        const conversationsWithMessages = friends.map((conv) => {
+          const convMessages: Message[] = rawMessages
+            .filter(
+              (msg: any) =>
+                (msg.senderId === loggedInUserId && msg.receiverId === conv._id) ||
+                (msg.senderId === conv._id && msg.receiverId === loggedInUserId)
+            )
+            .map((msg: any) => ({
+              id: msg._id,
+              text: msg.text,
+              sender: msg.senderId === loggedInUserId ? "me" : "other",
+              time: new Date(msg.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            }));
 
-            return {
-              ...conv,
-              messages: convMessages,
-              lastMessage: convMessages.at(-1)?.text || "",
-              time: convMessages.at(-1)?.time || "",
-            };
-          })
-        );
+          return {
+            ...conv,
+            messages: convMessages,
+            lastMessage: convMessages.at(-1)?.text || "",
+            time: convMessages.at(-1)?.time || "",
+          };
+        });
+
+        setConversations(conversationsWithMessages);
       } catch (err) {
-        console.error("Failed to load messages:", err);
+        console.error("Failed to load conversations/messages:", err);
       }
     };
 
-    loadAllMessages();
-  }, [loggedInUserId, conversations.length]);
+    loadConversations();
+  }, [loggedInUserId]);
 
   /* ================= SOCKET JOIN ================= */
   useEffect(() => {
@@ -127,26 +98,24 @@ const ChatHome = () => {
     socket.emit("register_user", loggedInUserId);
   }, [loggedInUserId]);
 
-  /* ================= RECEIVE MESSAGE ================= */
+  /* ================= SOCKET RECEIVE MESSAGE ================= */
   useEffect(() => {
     const handleReceiveMessage = (msg: SocketMessage) => {
       const incoming: Message = {
         id: msg.messageId,
         text: msg.text,
         sender: msg.from === loggedInUserId ? "me" : "other",
-        time: new Date(msg.createdAt).toLocaleTimeString(
-          [],
-          { hour: "2-digit", minute: "2-digit" }
-        ),
+        time: new Date(msg.createdAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
 
       setConversations((prev) =>
         prev.map((conv) => {
-          if (conv._id !== msg.from && conv._id !== msg.to)
-            return conv;
+          if (conv._id !== msg.from && conv._id !== msg.to) return conv;
 
-          if (conv.messages.some((m) => m.id === msg.messageId))
-            return conv;
+          if (conv.messages.some((m) => m.id === msg.messageId)) return conv;
 
           return {
             ...conv,
@@ -159,16 +128,11 @@ const ChatHome = () => {
     };
 
     socket.on("receive_message", handleReceiveMessage);
-    return () =>
-      socket.off("receive_message", handleReceiveMessage);
+    return () => socket.off("receive_message", handleReceiveMessage);
   }, [loggedInUserId]);
 
-  /* ================= SELECT CHAT ================= */
-  const handleSelectChat = (chat: Conversation) => {
-    setActiveChat(chat);
-  };
+  const handleSelectChat = (chat: Conversation) => setActiveChat(chat);
 
-  /* ================= RENDER ================= */
   return (
     <div className="flex h-screen">
       <ChatRoom
@@ -179,10 +143,7 @@ const ChatHome = () => {
         myAvatar={myAvatar}
       />
 
-      <MessageList
-        conversations={conversations}
-        setActiveChat={handleSelectChat}
-      />
+      <MessageList conversations={conversations} setActiveChat={handleSelectChat} />
     </div>
   );
 };

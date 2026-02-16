@@ -26,3 +26,5 @@ const rejectFriendRequest = async (req, res) => {
     }
   };
   
+
+  module.exports = rejectFriendRequest

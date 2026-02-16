@@ -35,18 +35,21 @@ const SettingsForm = ({ onCloseSettings}: SettingsFormProps) => {
   const [password, setPassword] = useState("");
   const [betaFeatures, setBetaFeatures] = useState(false);
 
-  useEffect(() => {
-    // Load profile picture from localStorage if available
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    console.log(user)
-    if (user?.profilePicture) {
-      setProfilePic(user.profilePicture);
-    }
 
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (user?.profilePicture) {
+      setProfilePic(user.profilePicture); 
+      console.log(user.username )// <-- this will now work
+    }
     if (user?.username) {
       setUsername(user.username);
     }
+ 
   }, []);
+
+  
  
 
 

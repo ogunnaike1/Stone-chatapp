@@ -37,4 +37,25 @@ router.get("/:userId/:otherUserId", verifyToken, async (req, res) => {
   }
 });
 
+
+// Clear all messages between two users
+router.delete("/clear/:userId/:otherUserId", verifyToken, async (req, res) => {
+  const { userId, otherUserId } = req.params;
+
+  try {
+    await Message.deleteMany({
+      $or: [
+        { senderId: userId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: userId },
+      ],
+    });
+
+    res.status(200).json({ message: "Chat cleared successfully" });
+  } catch (err) {
+    console.error("Clear chat error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 module.exports = router;

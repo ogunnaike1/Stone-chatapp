@@ -34,6 +34,7 @@ const SignUpUser = async(req,res) =>{
                 id:newUser._id,
                 username: newUser.username,
                 email: newUser.email,
+             
             }
            })
         }
@@ -72,7 +73,7 @@ const LoginUser = async(req,res)=>{
         )
 
 
-        return res.status(201).json({ token, message: "Login successful", status: true,  user : {id: user._id, username:user.username, email:user.email } });
+        return res.status(201).json({ token, message: "Login successful", status: true,  user : {id: user._id, username:user.username, email:user.email, profilePicture: user.profilePicture || null} });
         
     } catch (error) {
         console.error("login error:", error);
