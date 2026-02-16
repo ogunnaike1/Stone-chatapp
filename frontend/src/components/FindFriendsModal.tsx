@@ -107,7 +107,7 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
       setSentRequests((prev) => prev.filter((uid) => uid !== id));
     } catch (err: any) {
       console.error("Cancel request error:", err);
-    
+      toast.error(err?.response?.data?.message || "Failed to cancel request");
     }
   };
 
