@@ -19,7 +19,7 @@ export type Message = {
   text: string;
   sender: "me" | "other";
   time: string;
-  id: string; // unique ID for each message
+  id: string;
 };
 
 export type Conversation = {
@@ -66,7 +66,9 @@ const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
         }`}
       >
         <p>{msg.text}</p>
-        <div className="text-[10px] text-gray-400 mt-1 text-right">{msg.time}</div>
+        <div className="text-[10px] text-gray-400 mt-1 text-right">
+          {msg.time}
+        </div>
       </div>
 
       {isMe && (
@@ -88,6 +90,7 @@ type ChatRoomProps = {
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   loggedInUser: string;
   myAvatar?: string;
+  onBack?: () => void; // ✅ back handler from parent
 };
 
 const ChatRoom = ({
@@ -96,8 +99,10 @@ const ChatRoom = ({
   setConversations,
   loggedInUser,
   myAvatar,
+  onBack, // ✅ receive onBack
 }: ChatRoomProps) => {
   const navigate = useNavigate();
+
   const [message, setMessage] = useState("");
   const [openedSidebar, setOpenedSidebar] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
@@ -107,33 +112,51 @@ const ChatRoom = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const currentChat = conversations.find((c) => c._id === activeChat?._id);
+  const currentChat = conversations.find(
+    (c) => c._id === activeChat?._id
+  );
 
-  /* ---------------- AUTO SCROLL ---------------- */
+  /* ================= AUTO SCROLL ================= */
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [currentChat?.messages]);
 
-  /* ---------------- SOCKET RECEIVE MESSAGE ---------------- */
+  /* ================= SOCKET RECEIVE ================= */
+
   useEffect(() => {
     const handleReceive = (data: any) => {
       const { from, text, createdAt, messageId } = data;
+
       const time = formatTime(new Date(createdAt));
 
       setConversations((prev) =>
         prev.map((conv) => {
           if (conv._id === from) {
-            // Avoid duplicate
-            const exists = conv.messages.some((m) => m.id === messageId);
+            const exists = conv.messages.some(
+              (m) => m.id === messageId
+            );
+
             if (exists) return conv;
 
             return {
               ...conv,
               lastMessage: text,
               time,
-              messages: [...conv.messages, { text, sender: "other", time, id: messageId }],
+              messages: [
+                ...conv.messages,
+                {
+                  text,
+                  sender: "other",
+                  time,
+                  id: messageId,
+                },
+              ],
             };
           }
+
           return conv;
         })
       );
@@ -146,18 +169,23 @@ const ChatRoom = ({
     };
   }, [setConversations]);
 
-  /* ---------------- INPUT ---------------- */
-  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value);
+  /* ================= INPUT ================= */
 
-  /* ---------------- SEND MESSAGE ---------------- */
+  const handleInput = (
+    e: ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setMessage(e.target.value);
+  };
+
+  /* ================= SEND ================= */
+
   const handleSend = () => {
     if (!message.trim() || !currentChat) return;
 
     const text = message.trim();
     const time = formatTime();
-    const messageId = Date.now().toString(); // simple unique ID
+    const messageId = Date.now().toString();
 
-    // Optimistic update
     setConversations((prev) =>
       prev.map((conv) =>
         conv._id === currentChat._id
@@ -165,7 +193,15 @@ const ChatRoom = ({
               ...conv,
               lastMessage: text,
               time,
-              messages: [...conv.messages, { text, sender: "me", time, id: messageId }],
+              messages: [
+                ...conv.messages,
+                {
+                  text,
+                  sender: "me",
+                  time,
+                  id: messageId,
+                },
+              ],
             }
           : conv
       )
@@ -175,67 +211,86 @@ const ChatRoom = ({
       senderId: loggedInUser,
       receiverId: currentChat._id,
       text,
-      messageId, // send unique ID to backend
+      messageId,
     });
 
     setMessage("");
   };
+
+  /* ================= CLEAR CHAT ================= */
 
   const handleClearChat = async () => {
     if (!activeChat) return;
 
     try {
       const token = localStorage.getItem("token");
-      const userId = loggedInUser;
 
-      await api.delete(`/messages/clear/${userId}/${activeChat._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(
+        `/messages/clear/${loggedInUser}/${activeChat._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       toast.success("Chat cleared successfully!");
 
-      // Clear messages locally
       setConversations((prev) =>
         prev.map((conv) =>
-          conv._id === activeChat._id ? { ...conv, messages: [], lastMessage: "", time: "" } : conv
+          conv._id === activeChat._id
+            ? {
+                ...conv,
+                messages: [],
+                lastMessage: "",
+                time: "",
+              }
+            : conv
         )
       );
     } catch (err) {
-      console.error("Clear chat error:", err);
       toast.error("Failed to clear chat");
     }
-  }
+  };
 
-  
+  /* ================= REMOVE FRIEND ================= */
+
   const handleRemoveFriend = async () => {
     if (!activeChat) return;
-  
+
     try {
       const token = localStorage.getItem("token");
-      await api.delete(`/user/friends/remove/${activeChat._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-  
-      // Remove from conversations list
-      setConversations((prev) =>
-        prev.filter((c) => c._id !== activeChat._id)
+
+      await api.delete(
+        `/user/friends/remove/${activeChat._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-  
-      // Optionally show toast
+
+      setConversations((prev) =>
+        prev.filter(
+          (c) => c._id !== activeChat._id
+        )
+      );
+
       toast.success("Friend removed successfully");
-  
-    } catch (err) {
-      toast.error("Failed to remove friend")
-      console.error("Failed to remove friend:", err);
+    } catch {
+      toast.error("Failed to remove friend");
     }
   };
-  /* ---------------- LOGOUT ---------------- */
+
+  /* ================= LOGOUT ================= */
+
   const handleLogout = () => {
     logout();
     navigate("/auth/login");
   };
 
-  /* ---------------- EMPTY STATE ---------------- */
+  /* ================= EMPTY ================= */
+
   if (!currentChat) {
     return (
       <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
@@ -244,53 +299,93 @@ const ChatRoom = ({
     );
   }
 
-  /* ---------------- RENDER ---------------- */
+  /* ================= UI ================= */
+
   return (
-    <div className="w-[70vw] hidden lg:block">
+    <div className="lg:w-[70vw] w-screen">
+
       {/* HEADER */}
+
       <div className="h-[16vh] bg-blue-500 flex items-center justify-between px-6 text-white">
-      <div className="relative">
-        <span
-          className="text-2xl cursor-pointer"
-          onClick={() => setShowMenu((prev) => !prev)
-          }>
-          <RxHamburgerMenu />
-        </span>
 
-        <ChatMenuDropdown
-          isOpen={showMenu}
-          onClose={() => setShowMenu(false)}
-          onRemoveFriend={handleRemoveFriend}
-          onReport={() => setShowReportModal(true)}
-          onClearChats={handleClearChat}
-        />
+        <div className="relative">
 
-      </div>
+          <span
+            className="text-2xl cursor-pointer"
+            onClick={() =>
+              setShowMenu((prev) => !prev)
+            }
+          >
+            <RxHamburgerMenu />
+          </span>
+
+          <ChatMenuDropdown
+            isOpen={showMenu}
+            onClose={() =>
+              setShowMenu(false)
+            }
+            onRemoveFriend={
+              handleRemoveFriend
+            }
+            onReport={() =>
+              setShowReportModal(true)
+            }
+            onClearChats={
+              handleClearChat
+            }
+          />
+
+        </div>
 
         <div className="flex items-center gap-3">
+
           <img
-            src={currentChat.avatar || FALLBACK_AVATAR}
-            onError={(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
+            src={
+              currentChat.avatar ||
+              FALLBACK_AVATAR
+            }
+            onError={(e) =>
+              ((e.target as HTMLImageElement).src =
+                FALLBACK_AVATAR)
+            }
             className="h-10 w-10 rounded-full"
             alt="Chat avatar"
           />
-          <span>{currentChat.name}</span>
-          <FaChevronRight />
+
+          <span>
+            {currentChat.name}
+          </span>
+
+          <FaChevronRight
+            onClick={onBack} // ✅ working back button
+            className="text-xl cursor-pointer lg:hidden"
+          />
+
         </div>
+
       </div>
 
       {/* MESSAGES */}
+
       <div className="bg-[#EDF0F9] h-[72vh] flex flex-col justify-between">
+
         <div className="flex-1 px-10 py-6 overflow-y-auto space-y-4">
-          {currentChat.messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              otherAvatar={currentChat.avatar}
-              myAvatar={myAvatar}
-            />
-          ))}
+
+          {currentChat.messages.map(
+            (msg) => (
+              <MessageBubble
+                key={msg.id}
+                msg={msg}
+                otherAvatar={
+                  currentChat.avatar
+                }
+                myAvatar={myAvatar}
+              />
+            )
+          )}
+
           <div ref={messagesEndRef} />
+
         </div>
 
         <ChatInput
@@ -299,19 +394,28 @@ const ChatRoom = ({
           handleInput={handleInput}
           onSend={handleSend}
         />
-      </div>
-       
-      <ReportUserModal
-          isOpen={showReportModal}
-          onClose={() => setShowReportModal(false)}
-          onSubmit={(reason, details) => {
-            console.log(reason, details);
 
-            // call backend API
-          }}
+      </div>
+
+      <ReportUserModal
+        isOpen={showReportModal}
+        onClose={() =>
+          setShowReportModal(false)
+        }
+        onSubmit={(reason, details) =>
+          console.log(reason, details)
+        }
+      />
+
+      {showLogout && (
+        <LogoutModal
+          onConfirm={handleLogout}
+          onCancel={() =>
+            setShowLogout(false)
+          }
         />
-    
-      {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
+      )}
+
     </div>
   );
 };

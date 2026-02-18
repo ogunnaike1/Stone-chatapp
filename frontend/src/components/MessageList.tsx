@@ -45,7 +45,7 @@ const MessageList = ({ conversations, setActiveChat }: MessageListProps) => {
   return (
     <div className="lg:w-[30vw] w-full border-r">
       {/* HEADER */}
-      <div className="bg-blue-700 pb-4">
+      <div className="bg-blue-700 h-[16vh]">
         <div className="text-white flex w-[90%] pt-3 mx-auto justify-between items-center">
           <span className="text-xl font-bold">STONECHAT</span>
 
