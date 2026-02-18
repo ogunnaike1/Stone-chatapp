@@ -379,7 +379,7 @@ const ChatRoom = ({
                 otherAvatar={
                   currentChat.avatar
                 }
-        
+                myAvatar={myAvatar}
               />
             )
           )}
