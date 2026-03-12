@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import SignUp from './pages/auth/SignUp'
 import Login from './pages/auth/Login'
@@ -9,61 +8,64 @@ import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 import ForgotPasswordForm from './pages/ForgotPassword'
 import ResetPasswordForm from './pages/ResetPassword'
+import LandingPage from './pages/LandingPage'
+import ChatLanding from './pages/ChatLanding'
+import { NotificationProvider } from './components/NotificationContext';
 
 import './App.css'
 
 function App() {
-  
+
   return (
-    
+    <NotificationProvider>
       <div>
-         <Routes>
+        <Routes>
+
           <Route path='/' element={
             <PublicRoute>
-               <SignUp/>
+              <SignUp/>
             </PublicRoute>
-           
-            }>
-          </Route>
+          }/>
+
           <Route path="/auth/login" element={
             <PublicRoute>
-             <Login/>
+              <Login/>
             </PublicRoute>
-            
-            }>
+          }/>
 
-            </Route>
+          <Route path="/landingpage" element={
+            <PublicRoute>
+              <LandingPage/>
+            </PublicRoute>
+          }/>
 
-            <Route
-               path="/forgot-password"
-               element={
-                  <PublicRoute>
-                     <ForgotPasswordForm />
-                  </PublicRoute>
-               }
-               >
-             </Route>
-             <Route
-               path="/reset-password/:token"
-               element={
-                  <PublicRoute>
-                     <ResetPasswordForm />
-                  </PublicRoute>
-               }
-               >
-             </Route>
+          <Route path="/chatlanding" element={
+            <PublicRoute>
+              <ChatLanding/>
+            </PublicRoute>
+          }/>
+
+          <Route path="/forgot-password" element={
+            <PublicRoute>
+              <ForgotPasswordForm />
+            </PublicRoute>
+          }/>
+
+          <Route path="/reset-password/:token" element={
+            <PublicRoute>
+              <ResetPasswordForm />
+            </PublicRoute>
+          }/>
 
           <Route path="/chathome" element={
             <ProtectedRoute>
-               <ChatHome/>
+              <ChatHome/>
             </ProtectedRoute>
-           
-            }>
-            </Route>
-         </Routes>
-         <ToastContainer position="top-right" autoClose={3000} />
+          }/>
+
+        </Routes>
       </div>
-  
+    </NotificationProvider>
   )
 }
 

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, type ChangeEvent, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { RxHamburgerMenu } from "react-icons/rx";
-import { FaChevronRight } from "react-icons/fa6";
+import { FaChevronLeft } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import ChatInput from "./ChatInput";
 import Sidebar from "./Sidebar";
@@ -10,11 +11,11 @@ import { socket } from "../utils/socket";
 import { formatTime } from "../utils/formatTime";
 import ChatMenuDropdown from "./ChatMenuDropDown";
 import ReportUserModal from "./ReportUserModal";
-import { toast } from "react-toastify";
+import { useNotification } from "./NotificationContext";
+import { NotificationContainer } from "./NotificationToast";
 import api from "../api/axios";
 
-/* ================= TYPES ================= */
-
+/* ── TYPES ── */
 export type Message = {
   text: string;
   sender: "me" | "other";
@@ -31,392 +32,408 @@ export type Conversation = {
   messages: Message[];
 };
 
-/* ================= CONSTANTS ================= */
+const FALLBACK_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-const FALLBACK_AVATAR =
-  "https://randomuser.me/api/portraits/lego/1.jpg";
-
-/* ================= MESSAGE BUBBLE ================= */
-
+/* ── MESSAGE BUBBLE ── */
 type MessageBubbleProps = {
   msg: Message;
   otherAvatar?: string;
   myAvatar?: string;
+  isFirst?: boolean;
 };
 
-const MessageBubble = ({ msg, otherAvatar, myAvatar }: MessageBubbleProps) => {
+const MessageBubble = ({ msg, otherAvatar, myAvatar, isFirst }: MessageBubbleProps) => {
   const isMe = msg.sender === "me";
 
   return (
-    <div className={`flex items-end mb-2 ${isMe ? "justify-end" : "justify-start"}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        marginBottom: 8,
+        justifyContent: isMe ? "flex-end" : "flex-start",
+        gap: 8,
+      }}
+    >
+      {/* Other avatar */}
       {!isMe && (
         <img
           src={otherAvatar || FALLBACK_AVATAR}
-          onError={(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
-          alt="User avatar"
-          className="h-8 w-8 rounded-full"
+          onError={e => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
+          alt="avatar"
+          style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, border: "1.5px solid rgba(0,245,160,0.2)", objectFit: "cover" }}
         />
       )}
 
-      <div
-        className={`max-w-xs px-4 py-2 rounded-lg break-words ${
-          isMe
-            ? "bg-blue-500 text-white rounded-br-none ml-2"
-            : "bg-white text-gray-800 rounded-bl-none mr-2"
-        }`}
-      >
-        <p>{msg.text}</p>
-        <div className="text-[10px] text-gray-400 mt-1 text-right">
-          {msg.time}
+      {/* Bubble */}
+      <div style={{ maxWidth: "65%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+        <div style={{
+          background: isMe
+            ? "linear-gradient(135deg, #00f5a0, #00d9f5)"
+            : "rgba(255,255,255,0.07)",
+          color: isMe ? "#000" : "#fff",
+          padding: "10px 14px",
+          borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+          lineHeight: 1.5,
+          fontWeight: isMe ? 500 : 400,
+          border: !isMe ? "1px solid rgba(255,255,255,0.08)" : "none",
+          boxShadow: isMe ? "0 4px 16px rgba(0,245,160,0.2)" : "0 2px 8px rgba(0,0,0,0.3)",
+          wordBreak: "break-word",
+        }}>
+          {msg.text}
         </div>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, paddingLeft: 2, paddingRight: 2 }}>
+          {msg.time}
+        </span>
       </div>
 
+      {/* My avatar */}
       {isMe && (
         <img
           src={myAvatar || FALLBACK_AVATAR}
-          alt="My avatar"
-          className="h-8 w-8 rounded-full"
+          alt="me"
+          style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, border: "1.5px solid rgba(0,217,245,0.3)", objectFit: "cover" }}
         />
       )}
-    </div>
+    </motion.div>
   );
 };
 
-/* ================= CHAT ROOM ================= */
-
+/* ── CHAT ROOM ── */
 type ChatRoomProps = {
   activeChat: Conversation | null;
   conversations: Conversation[];
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   loggedInUser: string;
   myAvatar?: string;
-  onBack?: () => void; // ✅ back handler from parent
+  onBack?: () => void;
 };
 
-const ChatRoom = ({
-  activeChat,
-  conversations,
-  setConversations,
-  loggedInUser,
-  myAvatar,
-  onBack, // ✅ receive onBack
-}: ChatRoomProps) => {
+const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, myAvatar, onBack }: ChatRoomProps) => {
   const navigate = useNavigate();
+  const { success, error } = useNotification();
 
-  const [message, setMessage] = useState("");
-  const [openedSidebar, setOpenedSidebar] = useState(false);
-  const [showLogout, setShowLogout] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [message, setMessage]             = useState("");
+  const [showLogout, setShowLogout]       = useState(false);
+  const [showMenu, setShowMenu]           = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement | null>(null);
 
-  const currentChat = conversations.find(
-    (c) => c._id === activeChat?._id
-  );
-
-  /* ================= AUTO SCROLL ================= */
+  const currentChat = conversations.find(c => c._id === activeChat?._id);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat?.messages]);
 
-  /* ================= SOCKET RECEIVE ================= */
-
+  /* socket receive */
   useEffect(() => {
     const handleReceive = (data: any) => {
       const { from, text, createdAt, messageId } = data;
-
       const time = formatTime(new Date(createdAt));
-
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv._id === from) {
-            const exists = conv.messages.some(
-              (m) => m.id === messageId
-            );
-
-            if (exists) return conv;
-
-            return {
-              ...conv,
-              lastMessage: text,
-              time,
-              messages: [
-                ...conv.messages,
-                {
-                  text,
-                  sender: "other",
-                  time,
-                  id: messageId,
-                },
-              ],
-            };
-          }
-
-          return conv;
+      setConversations(prev =>
+        prev.map(conv => {
+          if (conv._id !== from) return conv;
+          if (conv.messages.some(m => m.id === messageId)) return conv;
+          return { ...conv, lastMessage: text, time, messages: [...conv.messages, { text, sender: "other", time, id: messageId }] };
         })
       );
     };
-
     socket.on("receive_message", handleReceive);
-
-    return () => {
-      socket.off("receive_message", handleReceive);
-    };
+    return () => { socket.off("receive_message", handleReceive); };
   }, [setConversations]);
 
-  /* ================= INPUT ================= */
-
-  const handleInput = (
-    e: ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    setMessage(e.target.value);
-  };
-
-  /* ================= SEND ================= */
+  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value);
 
   const handleSend = () => {
     if (!message.trim() || !currentChat) return;
-
     const text = message.trim();
     const time = formatTime();
     const messageId = Date.now().toString();
-
-    setConversations((prev) =>
-      prev.map((conv) =>
+    setConversations(prev =>
+      prev.map(conv =>
         conv._id === currentChat._id
-          ? {
-              ...conv,
-              lastMessage: text,
-              time,
-              messages: [
-                ...conv.messages,
-                {
-                  text,
-                  sender: "me",
-                  time,
-                  id: messageId,
-                },
-              ],
-            }
+          ? { ...conv, lastMessage: text, time, messages: [...conv.messages, { text, sender: "me", time, id: messageId }] }
           : conv
       )
     );
-
-    socket.emit("send_message", {
-      senderId: loggedInUser,
-      receiverId: currentChat._id,
-      text,
-      messageId,
-    });
-
+    socket.emit("send_message", { senderId: loggedInUser, receiverId: currentChat._id, text, messageId });
     setMessage("");
   };
 
-  /* ================= CLEAR CHAT ================= */
-
   const handleClearChat = async () => {
     if (!activeChat) return;
-
     try {
       const token = localStorage.getItem("token");
-
-      await api.delete(
-        `/messages/clear/${loggedInUser}/${activeChat._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      await api.delete(`/messages/clear/${loggedInUser}/${activeChat._id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setConversations(prev =>
+        prev.map(conv => conv._id === activeChat._id ? { ...conv, messages: [], lastMessage: "", time: "" } : conv)
       );
-
-      toast.success("Chat cleared successfully!");
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv._id === activeChat._id
-            ? {
-                ...conv,
-                messages: [],
-                lastMessage: "",
-                time: "",
-              }
-            : conv
-        )
-      );
-    } catch (err) {
-      toast.error("Failed to clear chat");
+      success("Chat cleared", "All messages have been removed.");
+    } catch {
+      error("Failed to clear chat", "Something went wrong. Please try again.");
     }
   };
-
-  /* ================= REMOVE FRIEND ================= */
 
   const handleRemoveFriend = async () => {
     if (!activeChat) return;
-
     try {
       const token = localStorage.getItem("token");
-
-      await api.delete(
-        `/user/friends/remove/${activeChat._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setConversations((prev) =>
-        prev.filter(
-          (c) => c._id !== activeChat._id
-        )
-      );
-
-      toast.success("Friend removed successfully");
+      await api.delete(`/user/friends/remove/${activeChat._id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setConversations(prev => prev.filter(c => c._id !== activeChat._id));
+      success("Friend removed", `${activeChat.name} has been removed from your friends.`);
     } catch {
-      toast.error("Failed to remove friend");
+      error("Failed to remove friend", "Something went wrong. Please try again.");
     }
   };
 
-  /* ================= LOGOUT ================= */
+  const handleLogout = () => { logout(); navigate("/auth/login"); };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/auth/login");
-  };
-
-  /* ================= EMPTY ================= */
-
+  /* ── EMPTY STATE ── */
   if (!currentChat) {
     return (
-      <div className="w-[70vw] hidden lg:flex items-center justify-center text-gray-400">
-        Select a conversation to start chatting
-      </div>
+      <>
+        <NotificationContainer />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#070a0f",
+            fontFamily: "'DM Sans', sans-serif",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Background orb */}
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], opacity: [0.06, 0.1, 0.06] }}
+            transition={{ duration: 5, repeat: Infinity }}
+            style={{ position: "absolute", width: 400, height: 400, borderRadius: "50%", background: "#00f5a0", filter: "blur(100px)", pointerEvents: "none" }}
+          />
+          <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              style={{ fontSize: 56, marginBottom: 20 }}
+            >
+              💬
+            </motion.div>
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8,
+            }}>
+              Select a conversation
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 14 }}>
+              Choose from your chats on the left to start messaging
+            </div>
+          </div>
+        </motion.div>
+      </>
     );
   }
 
-  /* ================= UI ================= */
-
+  /* ── MAIN UI ── */
   return (
-    <div className="lg:w-[70vw] w-screen">
+    <>
+      <NotificationContainer />
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        .messages-scroll::-webkit-scrollbar { width: 4px; }
+        .messages-scroll::-webkit-scrollbar-track { background: transparent; }
+        .messages-scroll::-webkit-scrollbar-thumb { background: rgba(0,245,160,0.15); border-radius: 4px; }
+      `}</style>
 
-      {/* HEADER */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        background: "#070a0f",
+        height: "100vh",
+        fontFamily: "'DM Sans', sans-serif",
+        position: "relative",
+      }}>
 
-      <div className="h-[16vh] bg-blue-500 flex items-center justify-between px-6 text-white">
+        {/* ── HEADER ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 20px",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(255,255,255,0.02)",
+            backdropFilter: "blur(20px)",
+            position: "relative",
+            zIndex: 10,
+            flexShrink: 0,
+          }}
+        >
+          {/* Left: back (mobile) + menu */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Back (mobile) */}
+            <motion.button
+              whileHover={{ scale: 1.08, background: "rgba(255,255,255,0.08)" }}
+              whileTap={{ scale: 0.94 }}
+              onClick={onBack}
+              className="lg:hidden"
+              style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#00f5a0", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", fontSize: 14,
+              }}
+            >
+              <FaChevronLeft />
+            </motion.button>
 
-        <div className="relative">
-
-          <span
-            className="text-2xl cursor-pointer"
-            onClick={() =>
-              setShowMenu((prev) => !prev)
-            }
-          >
-            <RxHamburgerMenu />
-          </span>
-
-          <ChatMenuDropdown
-            isOpen={showMenu}
-            onClose={() =>
-              setShowMenu(false)
-            }
-            onRemoveFriend={
-              handleRemoveFriend
-            }
-            onReport={() =>
-              setShowReportModal(true)
-            }
-            onClearChats={
-              handleClearChat
-            }
-          />
-
-        </div>
-
-        <div className="flex items-center gap-3">
-
-          <img
-            src={
-              currentChat.avatar ||
-              FALLBACK_AVATAR
-            }
-            onError={(e) =>
-              ((e.target as HTMLImageElement).src =
-                FALLBACK_AVATAR)
-            }
-            className="h-10 w-10 rounded-full"
-            alt="Chat avatar"
-          />
-
-          <span>
-            {currentChat.name}
-          </span>
-
-          <FaChevronRight
-            onClick={onBack} // ✅ working back button
-            className="text-xl cursor-pointer lg:hidden"
-          />
-
-        </div>
-
-      </div>
-
-      {/* MESSAGES */}
-
-      <div className="bg-[#EDF0F9] h-[72vh] flex flex-col justify-between">
-
-        <div className="flex-1 px-10 py-6 overflow-y-auto space-y-4">
-
-          {currentChat.messages.map(
-            (msg) => (
-              <MessageBubble
-                key={msg.id}
-                msg={msg}
-                otherAvatar={
-                  currentChat.avatar
-                }
-                myAvatar={myAvatar}
+            {/* Menu */}
+            <div style={{ position: "relative" }}>
+              <motion.button
+                whileHover={{ scale: 1.08, background: "rgba(255,255,255,0.08)" }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => setShowMenu(p => !p)}
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center",
+                  justifyContent: "center", cursor: "pointer", fontSize: 18,
+                }}
+              >
+                <RxHamburgerMenu />
+              </motion.button>
+              <ChatMenuDropdown
+                isOpen={showMenu}
+                onClose={() => setShowMenu(false)}
+                onRemoveFriend={handleRemoveFriend}
+                onReport={() => setShowReportModal(true)}
+                onClearChats={handleClearChat}
               />
-            )
+            </div>
+          </div>
+
+          {/* Center: avatar + name */}
+          <motion.div
+            key={currentChat._id}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
+          >
+            <div style={{ position: "relative" }}>
+              <img
+                src={currentChat.avatar || FALLBACK_AVATAR}
+                onError={e => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
+                style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,245,160,0.3)" }}
+                alt="chat avatar"
+              />
+              {/* Online dot */}
+              <div style={{
+                position: "absolute", bottom: 1, right: 1,
+                width: 9, height: 9, borderRadius: "50%",
+                background: "#00f5a0", border: "2px solid #070a0f",
+              }} />
+            </div>
+            <div>
+              <div style={{ color: "#fff", fontWeight: 600, fontSize: 15, lineHeight: 1.2 }}>{currentChat.name}</div>
+              <div style={{ color: "#00f5a0", fontSize: 11 }}>● Online</div>
+            </div>
+          </motion.div>
+
+          {/* Right: placeholder for symmetry */}
+          <div style={{ width: 34 }} />
+        </motion.div>
+
+        {/* ── MESSAGES AREA ── */}
+        <div
+          className="messages-scroll"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "20px 20px 10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            background: "radial-gradient(ellipse at 50% 0%, rgba(0,245,160,0.03) 0%, transparent 60%), #070a0f",
+          }}
+        >
+          {/* Date divider */}
+          {currentChat.messages.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 16px" }}
+            >
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: 1, textTransform: "uppercase" }}>Today</span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+            </motion.div>
           )}
 
-          <div ref={messagesEndRef} />
+          {currentChat.messages.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.2)", gap: 10, padding: "60px 0" }}
+            >
+              <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>
+                <div style={{ fontSize: 40 }}>👋</div>
+              </motion.div>
+              <span style={{ fontSize: 14 }}>Say hello to {currentChat.name}!</span>
+            </motion.div>
+          )}
 
+          {currentChat.messages.map((msg, i) => (
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              otherAvatar={currentChat.avatar}
+              myAvatar={myAvatar}
+              isFirst={i === 0}
+            />
+          ))}
+          <div ref={messagesEndRef} />
         </div>
 
-        <ChatInput
-          message={message}
-          textareaRef={textareaRef}
-          handleInput={handleInput}
-          onSend={handleSend}
-        />
+        {/* ── INPUT AREA ── */}
+        <div style={{
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          padding: "12px 16px",
+          background: "rgba(255,255,255,0.02)",
+          flexShrink: 0,
+        }}>
+          <ChatInput
+            message={message}
+            textareaRef={textareaRef}
+            handleInput={handleInput}
+            onSend={handleSend}
+          />
+        </div>
 
+        {/* Modals */}
+        <ReportUserModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(reason, details) => console.log(reason, details)}
+        />
+        {showLogout && (
+          <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />
+        )}
       </div>
-
-      <ReportUserModal
-        isOpen={showReportModal}
-        onClose={() =>
-          setShowReportModal(false)
-        }
-        onSubmit={(reason, details) =>
-          console.log(reason, details)
-        }
-      />
-
-      {showLogout && (
-        <LogoutModal
-          onConfirm={handleLogout}
-          onCancel={() =>
-            setShowLogout(false)
-          }
-        />
-      )}
-
-    </div>
+    </>
   );
 };
 
