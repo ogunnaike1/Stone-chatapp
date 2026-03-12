@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import { useState } from 'react'
 import SignUp from './pages/auth/SignUp'
 import Login from './pages/auth/Login'
 import ChatHome from './pages/ChatHome'
@@ -9,11 +10,18 @@ import ResetPasswordForm from './pages/ResetPassword'
 import LandingPage from './pages/LandingPage'
 import ChatLanding from './pages/ChatLanding'
 import NotFound from './pages/NotFound'
-import { NotificationProvider } from './components/NotificationContext';
+import LoadingScreen from './components/LoadingScreen'
+import { NotificationProvider } from './components/NotificationContext'
 
 import './App.css'
 
-function App() {
+const App = () => {
+  const [appReady, setAppReady] = useState(false)
+
+  if (!appReady) {
+    return <LoadingScreen variant="app" onComplete={() => setAppReady(true)} />
+  }
+
   return (
     <NotificationProvider>
       <div>
@@ -21,45 +29,45 @@ function App() {
 
           <Route path='/' element={
             <PublicRoute>
-              <SignUp/>
+              <ChatLanding />
             </PublicRoute>
-          }/>
+          } />
 
           <Route path="/auth/login" element={
             <PublicRoute>
-              <Login/>
+              <Login />
             </PublicRoute>
-          }/>
+          } />
 
           <Route path="/landingpage" element={
             <PublicRoute>
-              <LandingPage/>
+              <LandingPage />
             </PublicRoute>
-          }/>
+          } />
 
-          <Route path="/chatlanding" element={
+          <Route path="/auth/signup" element={
             <PublicRoute>
-              <ChatLanding/>
+              <SignUp />
             </PublicRoute>
-          }/>
+          } />
 
           <Route path="/forgot-password" element={
             <PublicRoute>
               <ForgotPasswordForm />
             </PublicRoute>
-          }/>
+          } />
 
           <Route path="/reset-password/:token" element={
             <PublicRoute>
               <ResetPasswordForm />
             </PublicRoute>
-          }/>
+          } />
 
           <Route path="/chathome" element={
             <ProtectedRoute>
-              <ChatHome/>
+              <ChatHome />
             </ProtectedRoute>
-          }/>
+          } />
 
           {/* ── 404 catch-all — must always be last ── */}
           <Route path="*" element={<NotFound />} />

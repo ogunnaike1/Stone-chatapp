@@ -15,28 +15,40 @@ type MessageListProps = {
   conversations: Conversation[];
   setActiveChat: (chat: Conversation) => void;
   activeChatId?: string;
+  unreadCounts?: Record<string, number>;
+  pendingRequests?: number;
+  onOpenFindFriends?: () => void;
 };
 
-const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageListProps) => {
-  const [showLogout, setShowLogout]       = useState(false);
-  const [showDropDown, setShowDropDown]   = useState(false);
+const MessageList = ({
+  conversations,
+  setActiveChat,
+  activeChatId,
+  unreadCounts = {},
+  pendingRequests = 0,
+  onOpenFindFriends,
+}: MessageListProps) => {
+  const [showLogout, setShowLogout]         = useState(false);
+  const [showDropDown, setShowDropDown]     = useState(false);
   const [showFindFriend, setShowFindFriend] = useState(false);
-  const [showSetting, setShowSettings]    = useState(false);
-  const [searchTerm, setSearchTerm]       = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [showSetting, setShowSettings]     = useState(false);
+  const [searchTerm, setSearchTerm]         = useState("");
+  const [searchFocused, setSearchFocused]   = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = () => { logout(); navigate("/auth/login"); };
 
-  const sortedConversations = useMemo(() => {
-    return [...conversations]
-      .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => {
-        if (!a.time && !b.time) return 0;
-        if (!a.time) return 1;
-        if (!b.time) return -1;
-        return new Date(b.time).getTime() - new Date(a.time).getTime();
-      });
+  const handleOpenFindFriend = () => {
+    setShowFindFriend(true);
+    onOpenFindFriends?.(); // clears the pending badge in ChatHome
+  };
+
+  // Conversations are already sorted by ChatHome — just filter here
+  const filteredConversations = useMemo(() => {
+    if (!searchTerm) return conversations;
+    return conversations.filter(u =>
+      u.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   }, [conversations, searchTerm]);
 
   return (
@@ -62,7 +74,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
         overflow: "hidden",
       }}>
 
-        {/* Subtle background orb */}
+        {/* Background orb */}
         <motion.div
           animate={{ y: [0, -20, 0], scale: [1, 1.05, 1] }}
           transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
@@ -89,8 +101,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
               transition={{ duration: 0.5 }}
               style={{
                 fontFamily: "'Syne', sans-serif",
-                fontSize: 20,
-                fontWeight: 800,
+                fontSize: 20, fontWeight: 800,
                 background: "linear-gradient(90deg, #00f5a0, #00d9f5)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -106,21 +117,50 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
               transition={{ delay: 0.2 }}
               style={{ display: "flex", gap: 8, alignItems: "center" }}
             >
-              {/* Add friend button */}
-              <motion.button
-                whileHover={{ scale: 1.08, background: "rgba(0,245,160,0.15)" }}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => setShowFindFriend(true)}
-                style={{
-                  width: 34, height: 34, borderRadius: 10,
-                  background: "rgba(0,245,160,0.08)",
-                  border: "1px solid rgba(0,245,160,0.2)",
-                  color: "#00f5a0", display: "flex", alignItems: "center",
-                  justifyContent: "center", cursor: "pointer", fontSize: 14,
-                }}
-              >
-                <FaPlus />
-              </motion.button>
+              {/* Add friend button — with friend request badge */}
+              <div style={{ position: "relative" }}>
+                <motion.button
+                  whileHover={{ scale: 1.08, background: "rgba(0,245,160,0.15)" }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={handleOpenFindFriend}
+                  style={{
+                    width: 34, height: 34, borderRadius: 10,
+                    background: "rgba(0,245,160,0.08)",
+                    border: "1px solid rgba(0,245,160,0.2)",
+                    color: "#00f5a0", display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: "pointer", fontSize: 14,
+                  }}
+                >
+                  <FaPlus />
+                </motion.button>
+
+                {/* Friend request badge */}
+                <AnimatePresence>
+                  {pendingRequests > 0 && (
+                    <motion.div
+                      key="req-badge"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      style={{
+                        position: "absolute",
+                        top: -6, right: -6,
+                        minWidth: 18, height: 18,
+                        borderRadius: 99,
+                        background: "#ff4d6a",
+                        border: "2px solid #070a0f",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 10, fontWeight: 700, color: "#fff",
+                        padding: "0 4px",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {pendingRequests > 9 ? "9+" : pendingRequests}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Menu button */}
               <div style={{ position: "relative" }}>
@@ -140,7 +180,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
                 </motion.button>
                 <ChatDropdown
                   isOpen={showDropDown}
-                  onFindFriends={() => { setShowDropDown(false); setShowFindFriend(true); }}
+                  onFindFriends={() => { setShowDropDown(false); handleOpenFindFriend(); }}
                   onSettings={() => { setShowDropDown(false); setShowSettings(true); }}
                   onLogout={() => { setShowDropDown(false); setShowLogout(true); }}
                 />
@@ -155,7 +195,6 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
             transition={{ delay: 0.25 }}
             style={{ position: "relative" }}
           >
-            {/* Focus ring */}
             <motion.div
               animate={{ opacity: searchFocused ? 1 : 0 }}
               transition={{ duration: 0.2 }}
@@ -213,23 +252,26 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
             transition={{ delay: 0.35 }}
             style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase" }}
           >
-            {sortedConversations.length} conversation{sortedConversations.length !== 1 ? "s" : ""}
+            {filteredConversations.length} conversation{filteredConversations.length !== 1 ? "s" : ""}
           </motion.div>
         </div>
 
         {/* ── CHAT LIST ── */}
         <div className="msg-list-scroll" style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
           <AnimatePresence mode="popLayout">
-            {sortedConversations.length > 0 ? (
-              sortedConversations.map((conv, i) => {
-                const isActive = conv._id === activeChatId;
+            {filteredConversations.length > 0 ? (
+              filteredConversations.map((conv, i) => {
+                const isActive  = conv._id === activeChatId;
+                const unread    = unreadCounts[conv._id] || 0;
+
                 return (
                   <motion.div
                     key={conv._id}
+                    layout
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3, delay: i * 0.04 }}
+                    transition={{ duration: 0.3, delay: i * 0.03 }}
                     onClick={() => setActiveChat(conv)}
                     whileHover={{ background: isActive ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.04)" }}
                     style={{
@@ -242,7 +284,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
                       position: "relative",
                     }}
                   >
-                    {/* Avatar with online dot */}
+                    {/* Avatar */}
                     <div style={{ position: "relative", flexShrink: 0 }}>
                       <img
                         src={conv.avatar}
@@ -257,8 +299,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
                       <div style={{
                         position: "absolute", bottom: 1, right: 1,
                         width: 10, height: 10, borderRadius: "50%",
-                        background: "#00f5a0",
-                        border: "2px solid #070a0f",
+                        background: "#00f5a0", border: "2px solid #070a0f",
                       }} />
                     </div>
 
@@ -267,7 +308,7 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                         <span style={{
                           color: isActive ? "#fff" : "rgba(255,255,255,0.85)",
-                          fontSize: 14, fontWeight: 600,
+                          fontSize: 14, fontWeight: unread > 0 ? 700 : 600,
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         }}>
                           {conv.name}
@@ -277,13 +318,38 @@ const MessageList = ({ conversations, setActiveChat, activeChatId }: MessageList
                         </span>
                       </div>
                       <p style={{
-                        color: "rgba(255,255,255,0.35)", fontSize: 12,
+                        color: unread > 0 ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.35)",
+                        fontSize: 12, fontWeight: unread > 0 ? 500 : 400,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         margin: 0,
                       }}>
                         {conv.lastMessage || "No messages yet"}
                       </p>
                     </div>
+
+                    {/* Unread badge */}
+                    <AnimatePresence>
+                      {unread > 0 && !isActive && (
+                        <motion.div
+                          key="unread-badge"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                          style={{
+                            minWidth: 20, height: 20,
+                            borderRadius: 99,
+                            background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 10, fontWeight: 700, color: "#000",
+                            padding: "0 5px",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {unread > 99 ? "99+" : unread}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 );
               })

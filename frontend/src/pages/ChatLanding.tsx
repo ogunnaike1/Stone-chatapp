@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import * as THREE from "three";
 
@@ -51,14 +52,14 @@ function useThreeScene(mountRef) {
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const cam = new THREE.PerspectiveCamera(50, W/H, 0.1, 100);
-    cam.position.set(0, 0, 8.5);
+    const cam = new THREE.PerspectiveCamera(55, W/H, 0.1, 100);
+    cam.position.set(0, -1.2, 9.5);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.3));
     const kl = new THREE.DirectionalLight(0x00f5a0, 2.2); kl.position.set(-3,4,3); scene.add(kl);
     const fl = new THREE.DirectionalLight(0x00d9f5, 1.4); fl.position.set(4,1,2); scene.add(fl);
     const rl = new THREE.PointLight(0x7b2fff, 2.5, 16); rl.position.set(0,3,-3); scene.add(rl);
-    scene.add(Object.assign(new THREE.PointLight(0x00f5a0, 0.8, 10), { position: new THREE.Vector3(0,-4,2) }));
+    const bl = new THREE.PointLight(0x00f5a0, 0.8, 10); bl.position.set(0,-4,2); scene.add(bl);
 
     // Phone
     const phoneG = new THREE.Group();
@@ -66,9 +67,9 @@ function useThreeScene(mountRef) {
     phoneG.add(new THREE.Mesh(new THREE.BoxGeometry(1.5,3.0,0.14), bM));
     const sM = new THREE.MeshBasicMaterial({ color:0x060910, transparent:true, opacity:0.97 });
     const ps = new THREE.Mesh(new THREE.PlaneGeometry(1.26,2.6), sM); ps.position.z=0.075; phoneG.add(ps);
-    phoneG.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(1.52,0.025,0.15), new THREE.MeshBasicMaterial({ color:0x00d9f5, transparent:true, opacity:0.8 })), { position: new THREE.Vector3(0,1.51,0) }));
-    phoneG.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(1.52,0.025,0.15), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:0.5 })), { position: new THREE.Vector3(0,-1.51,0) }));
-    phoneG.position.set(-2.7,0,0); phoneG.rotation.y=0.32; phoneG.rotation.x=-0.06;
+    const topRim = new THREE.Mesh(new THREE.BoxGeometry(1.52,0.025,0.15), new THREE.MeshBasicMaterial({ color:0x00d9f5, transparent:true, opacity:0.8 })); topRim.position.set(0,1.51,0); phoneG.add(topRim);
+    const botRim = new THREE.Mesh(new THREE.BoxGeometry(1.52,0.025,0.15), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:0.5 })); botRim.position.set(0,-1.51,0); phoneG.add(botRim);
+    phoneG.position.set(-2.7,-1.8,0); phoneG.rotation.y=0.32; phoneG.rotation.x=-0.06;
     scene.add(phoneG);
 
     // Desktop
@@ -76,10 +77,10 @@ function useThreeScene(mountRef) {
     const dM = new THREE.MeshPhysicalMaterial({ color:0x0a0e14, metalness:0.65, roughness:0.12, transparent:true, opacity:0.92 });
     deskG.add(new THREE.Mesh(new THREE.BoxGeometry(5.6,3.6,0.13), dM));
     const dS = new THREE.Mesh(new THREE.PlaneGeometry(5.2,3.18), new THREE.MeshBasicMaterial({ color:0x060910, transparent:true, opacity:0.97 })); dS.position.z=0.07; deskG.add(dS);
-    deskG.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(5.62,0.03,0.14), new THREE.MeshBasicMaterial({ color:0x7b2fff, transparent:true, opacity:0.75 })), { position: new THREE.Vector3(0,1.82,0) }));
-    deskG.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.16,1.0,0.13), dM), { position: new THREE.Vector3(0,-2.3,0) }));
-    deskG.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(1.8,0.11,0.55), dM), { position: new THREE.Vector3(0,-2.85,0) }));
-    deskG.position.set(1.5,0.25,-0.6); deskG.rotation.y=-0.2;
+    const dRim = new THREE.Mesh(new THREE.BoxGeometry(5.62,0.03,0.14), new THREE.MeshBasicMaterial({ color:0x7b2fff, transparent:true, opacity:0.75 })); dRim.position.set(0,1.82,0); deskG.add(dRim);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.16,1.0,0.13), dM); stand.position.set(0,-2.3,0); deskG.add(stand);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.11,0.55), dM); base.position.set(0,-2.85,0); deskG.add(base);
+    deskG.position.set(1.5,-1.6,-0.6); deskG.rotation.y=-0.2;
     scene.add(deskG);
 
     // Particles
@@ -109,20 +110,20 @@ function useThreeScene(mountRef) {
 
     // Ring
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.6,.015,8,64), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:.35 }));
-    ring.position.set(-.65,0,0); ring.rotation.x=Math.PI/2; scene.add(ring);
+    ring.position.set(-.65,-1.7,0); ring.rotation.x=Math.PI/2; scene.add(ring);
 
     const clock=new THREE.Clock(); let raf;
     const tick=()=>{
       raf=requestAnimationFrame(tick);
       const t=clock.getElapsedTime();
       cam.position.x=Math.sin(t*.05)*2.2;
-      cam.position.y=.6+Math.sin(t*.03)*.55;
-      cam.position.z=8.5-Math.sin(t*.04)*.8;
-      cam.lookAt(0,.1,0);
-      phoneG.position.y=Math.sin(t*.75)*.22;
+      cam.position.y=-1.2+Math.sin(t*.03)*.4;
+      cam.position.z=9.5-Math.sin(t*.04)*.8;
+      cam.lookAt(0,-1.6,0);
+      phoneG.position.y=-1.8+Math.sin(t*.75)*.22;
       phoneG.rotation.y=.32+Math.sin(t*.44)*.08;
       phoneG.rotation.z=Math.sin(t*.6)*.03;
-      deskG.position.y=.25+Math.sin(t*.58+1.3)*.15;
+      deskG.position.y=-1.6+Math.sin(t*.58+1.3)*.15;
       deskG.rotation.y=-.2+Math.sin(t*.38)*.05;
       const pa=pts.geometry.attributes.position.array;
       for(let i=0;i<N;i++){
@@ -235,13 +236,13 @@ const DesktopOverlay=()=>{
 };
 
 /* ─────────────────────────────────────────────
-   HERO 3D
+   HERO 3D — full viewport
 ───────────────────────────────────────────── */
 const Hero3D=()=>{
   const mountRef=useRef(null);
   useThreeScene(mountRef);
   return(
-    <div style={{position:"relative",width:"100%",height:520}}>
+    <div style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
       <div ref={mountRef} style={{position:"absolute",inset:0}}/>
       {/* Phone screen */}
       <div style={{position:"absolute",left:"19.2%",top:"13%",width:"9.8%",height:"57%",overflow:"hidden",borderRadius:"5px",pointerEvents:"none",zIndex:5}}>
@@ -253,25 +254,16 @@ const Hero3D=()=>{
       </div>
       {/* Feature badges */}
       {[
-        {icon:"🔒",label:"E2E Encrypted", style:{bottom:"18%",left:"5%"},  delay:1   },
-        {icon:"⚡",label:"<50ms",         style:{top:"12%",  left:"2%"},  delay:3.5 },
-        {icon:"🤖",label:"AI Co-Pilot",   style:{top:"10%",  right:"4%"}, delay:6.5 },
-        {icon:"🗂️",label:"File Vaults",   style:{bottom:"16%",right:"4%"},delay:9.5 },
+        {icon:"🔒",label:"E2E Encrypted", style:{bottom:"22%",left:"3%"},  delay:1   },
+        {icon:"⚡",label:"<50ms",         style:{top:"14%",  left:"1%"},   delay:3.5 },
+        {icon:"🤖",label:"AI Co-Pilot",   style:{top:"12%",  right:"2%"},  delay:6.5 },
+        {icon:"🗂️",label:"File Vaults",   style:{bottom:"20%",right:"2%"}, delay:9.5 },
       ].map(({icon,label,style,delay})=>(
         <motion.div key={label} initial={{opacity:0,scale:.75,y:12}} animate={{opacity:[0,1,1,1,0],scale:[.75,1,1,1,.88],y:[12,0,0,-2,-8]}} transition={{duration:4,delay,repeat:Infinity,repeatDelay:10,ease:[.16,1,.3,1]}} style={{position:"absolute",display:"flex",alignItems:"center",gap:8,background:"rgba(7,10,15,0.86)",border:"1px solid rgba(0,245,160,0.2)",borderRadius:30,padding:"7px 14px",backdropFilter:"blur(18px)",boxShadow:"0 8px 32px rgba(0,0,0,0.55)",fontFamily:"'DM Sans',sans-serif",pointerEvents:"none",zIndex:20,...style}}>
           <span style={{fontSize:15}}>{icon}</span>
           <span style={{color:"#fff",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{label}</span>
         </motion.div>
       ))}
-      {/* Live pill */}
-      <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} transition={{delay:1,duration:.5}} style={{position:"absolute",top:14,left:"50%",transform:"translateX(-50%)",display:"flex",alignItems:"center",gap:7,background:"rgba(0,245,160,0.08)",border:"1px solid rgba(0,245,160,0.2)",borderRadius:30,padding:"6px 16px",zIndex:30,fontFamily:"'DM Sans',sans-serif"}}>
-        <motion.div animate={{scale:[1,1.5,1],opacity:[1,.4,1]}} transition={{duration:1.5,repeat:Infinity}} style={{width:6,height:6,borderRadius:"50%",background:"#00f5a0"}}/>
-        <span style={{color:"#00f5a0",fontSize:12,fontWeight:600}}>Live demo — real-time messaging</span>
-      </motion.div>
-      {/* Vignette */}
-      <div style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:8,background:"radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(7,10,15,0.65) 100%)"}}/>
-      {/* Bottom fade */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:140,pointerEvents:"none",zIndex:9,background:"linear-gradient(transparent,#070a0f)"}}/>
     </div>
   );
 };
@@ -333,9 +325,9 @@ const ShimmerBtn=({children,onClick,style={}})=>(
    MAIN PAGE
 ───────────────────────────────────────────── */
 const ChatLanding=()=>{
+  const navigate=useNavigate();
   const {scrollY}=useScroll();
   const navBg=useTransform(scrollY,[0,80],["rgba(7,10,15,0)","rgba(7,10,15,0.94)"]);
-  const heroY=useTransform(scrollY,[0,500],[0,-100]);
 
   // Cursor glow
   const cx=useMotionValue(-200),cy=useMotionValue(-200);
@@ -381,59 +373,135 @@ const ChatLanding=()=>{
             {NAV_LINKS.map(link=>(
               <motion.a key={link} href="#" whileHover={{color:"#fff",y:-1}} style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,fontWeight:500,transition:"color 0.2s"}}>{link}</motion.a>
             ))}
-            <ShimmerBtn style={{padding:"10px 24px",fontSize:14}}>Get Started</ShimmerBtn>
+            <ShimmerBtn style={{padding:"10px 24px",fontSize:14}} onClick={()=>navigate("/auth/signup")}>Get Started</ShimmerBtn>
           </motion.div>
         </div>
       </motion.nav>
 
-      {/* ── HERO ── */}
-      <motion.section style={{position:"relative",zIndex:1,paddingTop:80,y:heroY}}>
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"60px 28px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:28}}>
+      {/* ── HERO: full-viewport 3D immersive ── */}
+      <section style={{position:"relative",zIndex:1,height:"100vh",minHeight:700,overflow:"hidden"}}>
+
+        {/* ── Three.js fills entire hero ── */}
+        <div style={{position:"absolute",inset:0,zIndex:0}}>
+          <Hero3D/>
+        </div>
+
+        {/* ── deep radial vignette so text pops ── */}
+        <div style={{position:"absolute",inset:0,zIndex:2,background:"radial-gradient(ellipse 80% 70% at 50% 50%, transparent 0%, rgba(7,10,15,0.45) 60%, rgba(7,10,15,0.85) 100%)",pointerEvents:"none"}}/>
+
+        {/* ── scan-line texture ── */}
+        <div style={{position:"absolute",inset:0,zIndex:2,backgroundImage:"repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px)",pointerEvents:"none"}}/>
+
+        {/* ── centered text overlay ── */}
+        <div style={{position:"absolute",inset:0,zIndex:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 28px 0",pointerEvents:"none"}}>
 
           {/* Badge */}
-          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:.6}} style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(0,245,160,0.08)",border:"1px solid rgba(0,245,160,0.22)",borderRadius:50,padding:"6px 18px",fontSize:13,color:"#00f5a0",fontWeight:500}}>
-            <motion.span animate={{scale:[1,1.4,1]}} transition={{duration:1.5,repeat:Infinity}} style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:"#00f5a0"}}/>
+          <motion.div
+            initial={{opacity:0,y:-16,scale:.9}}
+            animate={{opacity:1,y:0,scale:1}}
+            transition={{duration:.7,ease:[.16,1,.3,1]}}
+            style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(0,245,160,0.07)",border:"1px solid rgba(0,245,160,0.25)",borderRadius:50,padding:"7px 20px",fontSize:13,color:"#00f5a0",fontWeight:500,marginBottom:32,backdropFilter:"blur(12px)",pointerEvents:"auto"}}
+          >
+            <motion.span animate={{scale:[1,1.5,1],opacity:[1,.4,1]}} transition={{duration:1.4,repeat:Infinity}} style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:"#00f5a0",flexShrink:0}}/>
             v2.0 is live — faster, smarter, better
           </motion.div>
 
-          {/* Headline */}
-          <div style={{textAlign:"center"}}>
-            {["Talk faster.","Think together."].map((line,i)=>(
-              <motion.div key={line} initial={{opacity:0,y:48}} animate={{opacity:1,y:0}} transition={{duration:.8,delay:.1+i*.14,ease:[.16,1,.3,1]}}>
-                <span style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(56px,8.5vw,108px)",fontWeight:800,letterSpacing:"-4px",lineHeight:1,display:"block",background:i===1?"linear-gradient(90deg,#00f5a0,#00d9f5)":"#fff",WebkitBackgroundClip:i===1?"text":undefined,WebkitTextFillColor:i===1?"transparent":undefined}}>{line}</span>
-              </motion.div>
+          {/* Giant headline — each letter cascades in */}
+          <div style={{textAlign:"center",marginBottom:28,pointerEvents:"none"}}>
+            {[
+              {text:"Talk faster.", grad:false},
+              {text:"Think together.", grad:true},
+            ].map(({text,grad},lineIdx)=>(
+              <div key={text} style={{overflow:"hidden",lineHeight:1,marginBottom:4}}>
+                <motion.div
+                  initial={{y:"110%",opacity:0}}
+                  animate={{y:"0%",opacity:1}}
+                  transition={{duration:.9,delay:.15+lineIdx*.18,ease:[.16,1,.3,1]}}
+                >
+                  <span style={{
+                    fontFamily:"'Syne',sans-serif",
+                    fontSize:"clamp(58px,9vw,116px)",
+                    fontWeight:800,
+                    letterSpacing:"-4px",
+                    lineHeight:1,
+                    display:"block",
+                    ...(grad ? {
+                      background:"linear-gradient(90deg,#00f5a0,#00d9f5)",
+                      WebkitBackgroundClip:"text",
+                      WebkitTextFillColor:"transparent",
+                    } : {color:"#fff"}),
+                    textShadow:grad?"none":"0 2px 40px rgba(0,0,0,0.8)",
+                  }}>{text}</span>
+                </motion.div>
+              </div>
             ))}
           </div>
 
-          {/* Subtext */}
-          <motion.p initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{delay:.45,duration:.6}} style={{textAlign:"center",color:"rgba(255,255,255,0.45)",fontSize:"clamp(15px,1.8vw,19px)",maxWidth:540,lineHeight:1.75}}>
+          {/* Sub copy */}
+          <motion.p
+            initial={{opacity:0,y:20}}
+            animate={{opacity:1,y:0}}
+            transition={{duration:.7,delay:.55}}
+            style={{textAlign:"center",color:"rgba(255,255,255,0.5)",fontSize:"clamp(15px,1.7vw,19px)",maxWidth:520,lineHeight:1.8,marginBottom:40,textShadow:"0 1px 20px rgba(0,0,0,0.8)",pointerEvents:"none"}}
+          >
             The chat platform built for teams that move at the speed of thought. Encrypted, instant, and intelligently designed.
           </motion.p>
 
           {/* CTAs */}
-          <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{delay:.6,duration:.6}} style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"center"}}>
-            <ShimmerBtn>Start for free →</ShimmerBtn>
-            <motion.button whileHover={{scale:1.05,background:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.25)"}} whileTap={{scale:.97}} style={{background:"rgba(255,255,255,0.04)",color:"#fff",border:"1px solid rgba(255,255,255,0.14)",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:500,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s"}}>
+          <motion.div
+            initial={{opacity:0,y:20,scale:.95}}
+            animate={{opacity:1,y:0,scale:1}}
+            transition={{duration:.7,delay:.72,ease:[.16,1,.3,1]}}
+            style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"center",marginBottom:56,pointerEvents:"auto"}}
+          >
+            <ShimmerBtn style={{boxShadow:"0 8px 40px rgba(0,245,160,0.35),0 2px 8px rgba(0,0,0,0.6)"}}>
+              Start for free →
+            </ShimmerBtn>
+            <motion.button
+              whileHover={{scale:1.05,background:"rgba(255,255,255,0.1)",borderColor:"rgba(255,255,255,0.3)"}}
+              whileTap={{scale:.97}}
+              style={{background:"rgba(7,10,15,0.5)",color:"#fff",border:"1px solid rgba(255,255,255,0.18)",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:500,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",backdropFilter:"blur(14px)",transition:"all 0.2s",boxShadow:"0 2px 20px rgba(0,0,0,0.5)"}}
+            >
               Watch demo
             </motion.button>
           </motion.div>
+
+          {/* Social proof */}
+          <motion.div
+            initial={{opacity:0}}
+            animate={{opacity:1}}
+            transition={{delay:1.0}}
+            style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",justifyContent:"center",pointerEvents:"auto"}}
+          >
+            <div style={{display:"flex"}}>
+              {["#e91e8c","#9c27b0","#2196f3","#4caf50","#ff9800"].map((c,i)=>(
+                <div key={c} style={{width:30,height:30,borderRadius:"50%",background:c,border:"2px solid rgba(7,10,15,0.8)",marginLeft:i===0?0:-9,zIndex:5-i,position:"relative",boxShadow:"0 2px 8px rgba(0,0,0,0.5)"}}/>
+              ))}
+            </div>
+            <span style={{color:"rgba(255,255,255,0.5)",fontSize:13,textShadow:"0 1px 12px rgba(0,0,0,0.8)"}}>
+              Trusted by <strong style={{color:"#fff"}}>50,000+</strong> teams worldwide
+            </span>
+          </motion.div>
         </div>
 
-        {/* 3D scene */}
-        <motion.div initial={{opacity:0,y:60}} animate={{opacity:1,y:0}} transition={{duration:1,delay:.75,ease:[.16,1,.3,1]}}>
-          <Hero3D/>
+        {/* Scroll hint */}
+        <motion.div
+          initial={{opacity:0}}
+          animate={{opacity:1}}
+          transition={{delay:1.6}}
+          style={{position:"absolute",bottom:32,left:"50%",transform:"translateX(-50%)",zIndex:10,display:"flex",flexDirection:"column",alignItems:"center",gap:6,pointerEvents:"none"}}
+        >
+          <span style={{color:"rgba(255,255,255,0.25)",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>Scroll</span>
+          <motion.div
+            animate={{y:[0,8,0],opacity:[0.3,0.8,0.3]}}
+            transition={{duration:1.6,repeat:Infinity,ease:"easeInOut"}}
+            style={{width:1,height:36,background:"linear-gradient(to bottom,rgba(0,245,160,0.6),transparent)"}}
+          />
         </motion.div>
 
-        {/* Social proof */}
-        <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.1}} style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",justifyContent:"center",padding:"0 24px 80px"}}>
-          <div style={{display:"flex"}}>
-            {["#e91e8c","#9c27b0","#2196f3","#4caf50","#ff9800"].map((c,i)=>(
-              <div key={c} style={{width:32,height:32,borderRadius:"50%",background:c,border:"2px solid #070a0f",marginLeft:i===0?0:-10,zIndex:5-i,position:"relative"}}/>
-            ))}
-          </div>
-          <span style={{color:"rgba(255,255,255,0.45)",fontSize:14}}>Trusted by <strong style={{color:"#fff"}}>50,000+</strong> teams worldwide</span>
-        </motion.div>
-      </motion.section>
+        {/* Bottom gradient bleed into next section */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:180,zIndex:3,background:"linear-gradient(transparent,#070a0f)",pointerEvents:"none"}}/>
+      </section>
 
       {/* ── STATS BAR ── */}
       <section style={{position:"relative",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)",borderBottom:"1px solid rgba(255,255,255,0.05)",background:"rgba(255,255,255,0.02)"}}>

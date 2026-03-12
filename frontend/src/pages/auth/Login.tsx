@@ -354,7 +354,7 @@ const Login = () => {
               >
                 Don't have an account?{' '}
                 <Link
-                  to="/"
+                  to="/auth/signup"
                   style={{ color: '#00f5a0', textDecoration: 'none', fontWeight: 600, transition: 'opacity 0.2s' }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}

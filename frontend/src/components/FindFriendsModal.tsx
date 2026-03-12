@@ -4,6 +4,7 @@ import { FaUserCheck, FaUserPlus, FaUserClock, FaCheck, FaTimes } from "react-ic
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { useNotification } from "./NotificationContext";
+import { socket } from "../utils/socket";
 
 type UserResult = {
   _id: string;
@@ -154,9 +155,7 @@ const UserRow = ({
 
 /* ── Section header ── */
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <div style={{
-    display: "flex", alignItems: "center", gap: 10, margin: "16px 0 6px",
-  }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 6px" }}>
     <div style={{ height: 1, flex: 1, background: "rgba(255,255,255,0.06)" }} />
     <span style={{
       color: "rgba(255,255,255,0.3)", fontSize: 11, fontWeight: 600,
@@ -171,16 +170,18 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 /* ── Main modal ── */
 const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
   const { success, error } = useNotification();
-  const [search, setSearch]                 = useState("");
-  const [results, setResults]               = useState<UserResult[]>([]);
-  const [friends, setFriends]               = useState<string[]>([]);
-  const [sentRequests, setSentRequests]     = useState<string[]>([]);
+
+  const [search, setSearch]                     = useState("");
+  const [results, setResults]                   = useState<UserResult[]>([]);
+  const [friends, setFriends]                   = useState<string[]>([]);
+  const [sentRequests, setSentRequests]         = useState<string[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<UserResult[]>([]);
-  const [allUsers, setAllUsers]             = useState<UserResult[]>([]);
-  const [loading, setLoading]               = useState(false);
-  const [searchFocused, setSearchFocused]   = useState(false);
+  const [allUsers, setAllUsers]                 = useState<UserResult[]>([]);
+  const [loading, setLoading]                   = useState(false);
+  const [searchFocused, setSearchFocused]       = useState(false);
 
   const tokenHeader = { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } };
+  const myId = localStorage.getItem("userId");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -214,11 +215,15 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const handleSendRequest = async (id: string) => {
+  /* ── SEND FRIEND REQUEST ── */
+  const handleSendRequest = async (receiverId: string) => {
     try {
-      const res = await api.post("/user/friends/request", { receiverId: id }, tokenHeader);
+      const res = await api.post("/user/friends/request", { receiverId }, tokenHeader);
       success("Request sent!", res.data.message || "Friend request sent.");
-      setSentRequests(p => [...p, id]);
+      setSentRequests(p => [...p, receiverId]);
+
+      // ✅ Notify receiver in real-time via socket
+      socket.emit("send_friend_request", { fromId: myId, toId: receiverId });
     } catch (err: any) {
       error("Failed", err?.response?.data?.message || "Could not send request.");
     }
@@ -231,12 +236,16 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
     } catch (err) { console.error(err); }
   };
 
-  const handleAccept = async (id: string) => {
+  /* ── ACCEPT FRIEND REQUEST ── */
+  const handleAccept = async (senderId: string) => {
     try {
-      await api.post("/user/friends/accept", { senderId: id }, tokenHeader);
-      setFriends(p => [...p, id]);
-      setIncomingRequests(p => p.filter(u => u._id !== id));
+      await api.post("/user/friends/accept", { senderId }, tokenHeader);
+      setFriends(p => [...p, senderId]);
+      setIncomingRequests(p => p.filter(u => u._id !== senderId));
       success("Friend added!", "You are now connected.");
+
+      // ✅ Notify original sender that their request was accepted
+      socket.emit("accept_friend_request", { fromId: senderId, toId: myId });
     } catch (err) { console.error(err); }
   };
 
@@ -247,7 +256,6 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
     } catch (err) { console.error(err); }
   };
 
-  const myId = localStorage.getItem("userId");
   const displayedUsers = search ? results : allUsers;
 
   return (
@@ -279,36 +287,23 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
               onClick={e => e.stopPropagation()}
               style={{
                 pointerEvents: "all",
-                width: "100%", maxWidth: 440,
-                maxHeight: "88vh",
+                width: "100%", maxWidth: 440, maxHeight: "88vh",
                 background: "rgba(7,10,15,0.98)",
                 border: "1px solid rgba(255,255,255,0.09)",
-                borderRadius: 24,
-                overflow: "hidden",
+                borderRadius: 24, overflow: "hidden",
                 backdropFilter: "blur(28px)",
                 boxShadow: "0 40px 100px rgba(0,0,0,0.85)",
                 fontFamily: "'DM Sans', sans-serif",
-                display: "flex",
-                flexDirection: "column",
+                display: "flex", flexDirection: "column",
               }}
             >
               {/* Top accent */}
-              <div style={{
-                height: 2,
-                background: "linear-gradient(90deg, transparent, #00f5a0, #00d9f5, transparent)",
-                flexShrink: 0,
-              }} />
+              <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #00f5a0, #00d9f5, transparent)", flexShrink: 0 }} />
 
               {/* Header */}
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "20px 22px 16px", flexShrink: 0,
-              }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 22px 16px", flexShrink: 0 }}>
                 <div>
-                  <div style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800,
-                    color: "#fff", letterSpacing: "-0.4px",
-                  }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.4px" }}>
                     Find Friends
                   </div>
                   <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 }}>
@@ -321,11 +316,9 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
                   onClick={onClose}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "rgba(255,255,255,0.45)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", fontSize: 16, transition: "all 0.15s",
+                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: "pointer", fontSize: 16, transition: "all 0.15s",
                   }}
                 >
                   <IoMdClose />
@@ -340,8 +333,7 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
                     background: searchFocused ? "rgba(0,245,160,0.04)" : "rgba(255,255,255,0.04)",
-                    borderRadius: 14, padding: "11px 14px",
-                    transition: "background 0.2s",
+                    borderRadius: 14, padding: "11px 14px", transition: "background 0.2s",
                   }}
                 >
                   <motion.div animate={{ color: searchFocused ? "#00f5a0" : "rgba(255,255,255,0.3)" }}>
@@ -380,11 +372,7 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
               </div>
 
               {/* Scrollable content */}
-              <div style={{
-                flex: 1, overflowY: "auto", padding: "0 14px 16px",
-              }}
-                className="modal-scroll"
-              >
+              <div style={{ flex: 1, overflowY: "auto", padding: "0 14px 16px" }} className="modal-scroll">
                 <style>{`
                   .modal-scroll::-webkit-scrollbar { width: 4px; }
                   .modal-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -405,7 +393,7 @@ const FindFriendsModal = ({ isOpen, onClose }: FindFriendsModalProps) => {
                   </>
                 )}
 
-                {/* All users */}
+                {/* All / search results */}
                 <SectionLabel>{search ? `Results for "${search}"` : "All Users · A–Z"}</SectionLabel>
 
                 {displayedUsers.length === 0 && search && !loading && (
