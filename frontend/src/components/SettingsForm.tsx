@@ -1,331 +1,512 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Edit2 } from "lucide-react";
-import { toast } from "react-toastify";
+import { Edit2, X, User, Settings, Shield, Bell, Palette, Lock, Cpu, Eye, EyeOff, Check } from "lucide-react";
 import api from "../api/axios";
+import { useNotification } from "./NotificationContext";
 
 interface SettingsFormProps {
   onCloseSettings: () => void;
 }
 
-const tabs = [
-  "Profile",
-  "General",
-  "Privacy",
-  "Notifications",
-  "Appearance",
-  "Security",
-  "Advanced",
+const DEFAULT_PROFILE_PIC = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+
+const TABS = [
+  { key: "Profile",       label: "Profile",       icon: User },
+  { key: "General",       label: "General",       icon: Settings },
+  { key: "Privacy",       label: "Privacy",       icon: Shield },
+  { key: "Notifications", label: "Notifications", icon: Bell },
+  { key: "Appearance",    label: "Appearance",    icon: Palette },
+  { key: "Security",      label: "Security",      icon: Lock },
+  { key: "Advanced",      label: "Advanced",      icon: Cpu },
 ];
 
-const DEFAULT_PROFILE_PIC =
-  "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+/* ── Reusable toggle switch ── */
+const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
+  <motion.button
+    onClick={() => onChange(!value)}
+    animate={{ background: value ? "linear-gradient(135deg, #00f5a0, #00d9f5)" : "rgba(255,255,255,0.08)" }}
+    transition={{ duration: 0.2 }}
+    style={{
+      width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+      position: "relative", flexShrink: 0,
+      boxShadow: value ? "0 0 12px rgba(0,245,160,0.35)" : "none",
+    }}
+  >
+    <motion.div
+      animate={{ x: value ? 22 : 2 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      style={{
+        position: "absolute", top: 2, width: 20, height: 20,
+        borderRadius: "50%", background: "#fff",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+      }}
+    />
+  </motion.button>
+);
 
-const SettingsForm = ({ onCloseSettings}: SettingsFormProps) => {
-  const [activeTab, setActiveTab] = useState("Profile");
-  const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [username, setUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [hideOnline, setHideOnline] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(false);
-  const [pushNotif, setPushNotif] = useState(false);
-  const [theme, setTheme] = useState("Light");
-  const [password, setPassword] = useState("");
+/* ── Setting row ── */
+const SettingRow = ({
+  label, description, children,
+}: { label: string; description?: string; children: React.ReactNode }) => (
+  <div style={{
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "16px 0", borderBottom: "1px solid rgba(255,255,255,0.05)",
+    gap: 16,
+  }}>
+    <div>
+      <div style={{ color: "#fff", fontSize: 14, fontWeight: 500 }}>{label}</div>
+      {description && <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 }}>{description}</div>}
+    </div>
+    {children}
+  </div>
+);
+
+/* ── Dark input ── */
+const DarkInput = ({
+  value, onChange, placeholder, type = "text",
+}: { value: string; onChange: (v: string) => void; placeholder: string; type?: string }) => {
+  const [focused, setFocused] = useState(false);
+  const [show, setShow] = useState(false);
+  const isPassword = type === "password";
+
+  return (
+    <motion.div
+      animate={{ boxShadow: focused ? "0 0 0 2px rgba(0,245,160,0.3)" : "0 0 0 1px rgba(255,255,255,0.08)" }}
+      style={{
+        display: "flex", alignItems: "center", gap: 8,
+        background: focused ? "rgba(0,245,160,0.04)" : "rgba(255,255,255,0.04)",
+        borderRadius: 12, padding: "12px 14px", transition: "background 0.2s",
+      }}
+    >
+      <input
+        type={isPassword && !show ? "password" : "text"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          flex: 1, background: "none", border: "none", outline: "none",
+          color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+          caretColor: "#00f5a0",
+        }}
+      />
+      {isPassword && (
+        <button onClick={() => setShow(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", display: "flex" }}>
+          {show ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
+/* ── Section card ── */
+const Card = ({ children, title, description }: { children: React.ReactNode; title: string; description?: string }) => (
+  <div style={{
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 18, padding: "22px 22px 4px",
+    marginBottom: 16,
+  }}>
+    <div style={{ marginBottom: 4 }}>
+      <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Syne', sans-serif" }}>{title}</div>
+      {description && <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 3 }}>{description}</div>}
+    </div>
+    {children}
+  </div>
+);
+
+/* ── Main component ── */
+const SettingsForm = ({ onCloseSettings }: SettingsFormProps) => {
+  const { success, error } = useNotification();
+  const [activeTab, setActiveTab]       = useState("Profile");
+  const [profilePic, setProfilePic]     = useState<string | null>(null);
+  const [username, setUsername]         = useState("");
+  const [fullName, setFullName]         = useState("");
+  const [email, setEmail]               = useState("");
+  const [isPrivate, setIsPrivate]       = useState(false);
+  const [hideOnline, setHideOnline]     = useState(false);
+  const [emailNotif, setEmailNotif]     = useState(true);
+  const [pushNotif, setPushNotif]       = useState(false);
+  const [theme, setTheme]               = useState("Dark");
+  const [password, setPassword]         = useState("");
   const [betaFeatures, setBetaFeatures] = useState(false);
-
-
+  const [saving, setSaving]             = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user?.profilePicture) {
-      setProfilePic(user.profilePicture); 
-      console.log(user.username )// <-- this will now work
-    }
-    if (user?.username) {
-      setUsername(user.username);
-    }
- 
+    if (user?.profilePicture) setProfilePic(user.profilePicture);
+    if (user?.username)       setUsername(user.username);
   }, []);
-
-  
- 
-
-
-  const handleRemoveProfilePic = () => {
-    setProfilePic(null);
-  
-    // update localStorage as well
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user) {
-      user.profilePicture = null;
-      localStorage.setItem("user", JSON.stringify(user));
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = () => setProfilePic(reader.result as string);
     reader.readAsDataURL(file);
   };
 
+  const handleRemoveProfilePic = () => {
+    setProfilePic(null);
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (user) { user.profilePicture = null; localStorage.setItem("user", JSON.stringify(user)); }
+  };
+
   const handleSaveChanges = async () => {
+    setSaving(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      if (!user?.id) {
-        toast.error("User not logged in");
-        return;
-      }
-  
-      // Only proceed if a new profile picture was selected
-      if (!profilePic || profilePic.startsWith("http")) {
-        toast.error("No new profile picture to update.");
-        return;
-      }
-  
-      const { data } = await api.post("/user/upload-profile-pic", {
-        userId: user.id,
-        image: profilePic,
-      });
-  
-  
-      if (!data.status) {
-        throw new Error(data.message);
-      }
-  
-      // Update local storage with new profile picture
+      if (!user?.id) { error("Not logged in", "Please log in again."); return; }
+      if (!profilePic || profilePic.startsWith("http")) { error("No changes", "Select a new profile picture first."); return; }
+      const { data } = await api.post("/user/upload-profile-pic", { userId: user.id, image: profilePic });
+      if (!data.status) throw new Error(data.message);
       localStorage.setItem("user", JSON.stringify(data.user));
-      toast.success("Profile picture updated successfully!");
-      setProfilePic(data.user.profilePicture); // update state to reflect saved image
-    } catch (error: any) {
-      console.error("Error updating profile picture:", error);
-      toast.error(error.message || "Failed to update profile picture.");
+      success("Saved!", "Profile picture updated successfully.");
+      setProfilePic(data.user.profilePicture);
+    } catch (err: any) {
+      error("Failed", err.message || "Could not save changes.");
+    } finally {
+      setSaving(false);
     }
   };
-  
 
+  const THEME_OPTIONS = ["Dark", "Light", "System"];
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onCloseSettings}
+        style={{
+          position: "fixed", inset: 0, zIndex: 500,
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "16px", fontFamily: "'DM Sans', sans-serif",
+        }}
       >
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+          .settings-scroll::-webkit-scrollbar { width: 4px; }
+          .settings-scroll::-webkit-scrollbar-track { background: transparent; }
+          .settings-scroll::-webkit-scrollbar-thumb { background: rgba(0,245,160,0.18); border-radius: 4px; }
+        `}</style>
+
         <motion.div
-          initial={{ scale: 0.95, y: 30 }}
+          initial={{ scale: 0.9, y: 32 }}
           animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, y: 30 }}
-          className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden"
+          exit={{ scale: 0.9, y: 32 }}
+          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: "100%", maxWidth: 900, height: "90vh",
+            background: "rgba(7,10,15,0.98)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderRadius: 24, overflow: "hidden",
+            boxShadow: "0 48px 120px rgba(0,0,0,0.88)",
+            backdropFilter: "blur(28px)",
+            display: "flex", flexDirection: "column",
+          }}
         >
-          {/* HEADER */}
-          <div className="flex justify-between items-center px-6 py-4 border-b">
-            <h2 className="text-xl font-bold text-blue-500">Settings</h2>
-            <button
+          {/* Top accent */}
+          <div style={{ height: 2, background: "linear-gradient(90deg, transparent, #00f5a0, #00d9f5, transparent)", flexShrink: 0 }} />
+
+          {/* Header */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "18px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0,
+          }}>
+            <div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>
+                Settings
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 }}>
+                Manage your account and preferences
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.1, background: "rgba(255,255,255,0.09)", color: "#fff" }}
+              whileTap={{ scale: 0.92 }}
               onClick={onCloseSettings}
-              className="text-gray-400 hover:text-gray-700 text-xl"
+              style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", transition: "all 0.15s",
+              }}
             >
-              ✕
-            </button>
+              <X size={16} />
+            </motion.button>
           </div>
 
-          {/* BODY */}
-          <div className="flex flex-1 overflow-hidden">
-            {/* SIDEBAR */}
-            <aside className="hidden md:flex flex-col w-64 border-r bg-gray-50 p-4">
-              <div className="flex-1 space-y-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`w-full text-left px-4 py-2 rounded-lg transition
-                      ${
-                        activeTab === tab
-                          ? "bg-blue-500 text-white"
-                          : "text-gray-600 hover:bg-blue-100"
-                      }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+          {/* Body */}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-      
+            {/* Sidebar */}
+            <aside style={{
+              width: 220, borderRight: "1px solid rgba(255,255,255,0.06)",
+              padding: "16px 10px", display: "flex", flexDirection: "column",
+              flexShrink: 0, overflowY: "auto",
+            }}>
+              {TABS.map((tab, i) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.key;
+                return (
+                  <motion.button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    whileHover={{ x: active ? 0 : 2 }}
+                    whileTap={{ scale: 0.97 }}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 11,
+                      padding: "11px 14px", borderRadius: 12, border: "none", cursor: "pointer",
+                      background: active ? "rgba(0,245,160,0.1)" : "none",
+                      borderLeft: `3px solid ${active ? "#00f5a0" : "transparent"}`,
+                      color: active ? "#00f5a0" : "rgba(255,255,255,0.45)",
+                      fontSize: 13.5, fontWeight: active ? 600 : 400,
+                      fontFamily: "'DM Sans', sans-serif", textAlign: "left",
+                      transition: "all 0.15s", marginBottom: 2,
+                    }}
+                  >
+                    <Icon size={15} style={{ flexShrink: 0 }} />
+                    {tab.label}
+                    {active && (
+                      <motion.div layoutId="tab-dot" style={{
+                        marginLeft: "auto", width: 6, height: 6,
+                        borderRadius: "50%", background: "#00f5a0",
+                      }} />
+                    )}
+                  </motion.button>
+                );
+              })}
             </aside>
 
-            {/* CONTENT */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              {/* MOBILE TABS */}
-              <div className="md:hidden flex gap-2 overflow-x-auto mb-4">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 rounded-full text-sm whitespace-nowrap
-                      ${
-                        activeTab === tab
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              
-              </div>
-
+            {/* Content */}
+            <div className="settings-scroll" style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
-                  initial={{ opacity: 0, x: 30 }}
+                  initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
-                  transition={{ duration: 0.25 }}
-                  className="space-y-6"
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
                 >
-                  {/* PROFILE */}
+
+                  {/* ── PROFILE ── */}
                   {activeTab === "Profile" && (
-                  <section className="bg-white rounded-2xl p-6 border shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-5">
-                    Profile Picture
-                  </h3>
-                
-                  <div className="flex flex-col sm:flex-row items-center gap-6">
-                    {/* Profile Avatar */}
-                    <div className="relative w-32 h-32">
-                      <img
-                        src={profilePic || DEFAULT_PROFILE_PIC}
-                        alt="Profile"
-                        className="w-full h-full rounded-full object-cover border ring-2 ring-blue-300"
-                      />
-                
-                      {/* Pencil Edit Icon */}
-                      <label
-                        className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-1 cursor-pointer hover:bg-blue-600"
-                      >
-                        <Edit2 className="text-white w-4 h-4" />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                
-                    {/* Info & actions */}
-                    <div className="text-center sm:text-left space-y-2">
-                    <p className="text-[20px] text-blue-500 font-medium">{username}</p>
-                      <p className="text-gray-700 font-medium">Change your profile photo</p>
-                      <p className="text-sm text-gray-400">JPG, PNG or WEBP · Max 5MB</p>
-                      <div className="flex gap-3 justify-center sm:justify-start">
-                        {profilePic && (
-                          <div className="flex gap-3 justify-center sm:justify-start">
-                          <button
-                            onClick={handleRemoveProfilePic}
-                            className="px-4 py-2 border border-red-300 text-red-500 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-                          >
-                            Remove
-                          </button>
+                    <>
+                      <Card title="Profile Picture" description="This will be shown across StoneChat">
+                        <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "20px 0 18px" }}>
+                          {/* Avatar */}
+                          <div style={{ position: "relative", flexShrink: 0 }}>
+                            <div style={{
+                              width: 88, height: 88, borderRadius: "50%",
+                              background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
+                              padding: 2,
+                            }}>
+                              <img
+                                src={profilePic || DEFAULT_PROFILE_PIC}
+                                alt="Profile"
+                                style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", background: "#070a0f" }}
+                              />
+                            </div>
+                            <label style={{
+                              position: "absolute", bottom: 0, right: 0,
+                              width: 26, height: 26, borderRadius: "50%",
+                              background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              cursor: "pointer", border: "2px solid #070a0f",
+                            }}>
+                              <Edit2 size={11} color="#000" />
+                              <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
+                            </label>
+                          </div>
+
+                          {/* Info */}
+                          <div>
+                            <div style={{
+                              fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 700,
+                              background: "linear-gradient(90deg, #00f5a0, #00d9f5)",
+                              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                              marginBottom: 4,
+                            }}>
+                              {username || "Your Name"}
+                            </div>
+                            <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 12 }}>
+                              JPG, PNG or WEBP · Max 5MB
+                            </div>
+                            {profilePic && (
+                              <motion.button
+                                whileHover={{ background: "rgba(255,77,106,0.14)", color: "#ff4d6a" }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleRemoveProfilePic}
+                                style={{
+                                  padding: "6px 14px", borderRadius: 20, cursor: "pointer",
+                                  background: "rgba(255,77,106,0.08)",
+                                  border: "1px solid rgba(255,77,106,0.2)",
+                                  color: "#ff6b80", fontSize: 12, fontWeight: 600,
+                                  fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
+                                }}
+                              >
+                                Remove photo
+                              </motion.button>
+                            )}
+                          </div>
                         </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                      </Card>
+
+                      <Card title="Username" description="Your unique display name on StoneChat">
+                        <div style={{ padding: "14px 0 18px" }}>
+                          <DarkInput value={username} onChange={setUsername} placeholder="Username" />
+                        </div>
+                      </Card>
+                    </>
                   )}
 
-                  {/* GENERAL */}
+                  {/* ── GENERAL ── */}
                   {activeTab === "General" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">General Settings</h3>
-                      <input
-                        className="w-full input"
-                        placeholder="Full Name"
-                      />
-                      <input
-                        className="w-full input"
-                        placeholder="Email Address"
-                      />
-                    </section>
+                    <Card title="Account Details" description="Update your personal information">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 0 18px" }}>
+                        <DarkInput value={fullName} onChange={setFullName} placeholder="Full Name" />
+                        <DarkInput value={email} onChange={setEmail} placeholder="Email Address" />
+                      </div>
+                    </Card>
                   )}
 
-                  {/* PRIVACY */}
+                  {/* ── PRIVACY ── */}
                   {activeTab === "Privacy" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">Privacy</h3>
-                      <label className="flex items-center gap-3">
-                        <input type="checkbox" />
-                        Make profile private
-                      </label>
-                      <label className="flex items-center gap-3">
-                        <input type="checkbox" />
-                        Hide online status
-                      </label>
-                    </section>
+                    <Card title="Privacy Controls" description="Manage who can see your information">
+                      <SettingRow label="Private Profile" description="Only approved followers can see your activity">
+                        <Toggle value={isPrivate} onChange={setIsPrivate} />
+                      </SettingRow>
+                      <SettingRow label="Hide Online Status" description="Others won't see when you're active">
+                        <Toggle value={hideOnline} onChange={setHideOnline} />
+                      </SettingRow>
+                      <div style={{ paddingBottom: 4 }} />
+                    </Card>
                   )}
 
-                  {/* NOTIFICATIONS */}
+                  {/* ── NOTIFICATIONS ── */}
                   {activeTab === "Notifications" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">Notifications</h3>
-                      <label className="flex gap-3">
-                        <input type="checkbox" /> Email notifications
-                      </label>
-                      <label className="flex gap-3">
-                        <input type="checkbox" /> Push notifications
-                      </label>
-                    </section>
+                    <Card title="Notifications" description="Control how StoneChat notifies you">
+                      <SettingRow label="Email Notifications" description="Receive updates via email">
+                        <Toggle value={emailNotif} onChange={setEmailNotif} />
+                      </SettingRow>
+                      <SettingRow label="Push Notifications" description="Get alerts on your device">
+                        <Toggle value={pushNotif} onChange={setPushNotif} />
+                      </SettingRow>
+                      <div style={{ paddingBottom: 4 }} />
+                    </Card>
                   )}
 
-                  {/* APPEARANCE */}
+                  {/* ── APPEARANCE ── */}
                   {activeTab === "Appearance" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">Appearance</h3>
-                      <select className="input max-w-xs">
-                        <option>Light</option>
-                        <option>Dark</option>
-                        <option>System</option>
-                      </select>
-                    </section>
+                    <Card title="Theme" description="Choose how StoneChat looks">
+                      <div style={{ display: "flex", gap: 10, padding: "16px 0 18px" }}>
+                        {THEME_OPTIONS.map(opt => (
+                          <motion.button
+                            key={opt}
+                            onClick={() => setTheme(opt)}
+                            whileHover={{ scale: 1.04 }}
+                            whileTap={{ scale: 0.97 }}
+                            style={{
+                              flex: 1, padding: "12px 0", borderRadius: 14, cursor: "pointer",
+                              background: theme === opt ? "rgba(0,245,160,0.1)" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${theme === opt ? "rgba(0,245,160,0.35)" : "rgba(255,255,255,0.08)"}`,
+                              color: theme === opt ? "#00f5a0" : "rgba(255,255,255,0.45)",
+                              fontSize: 13, fontWeight: theme === opt ? 600 : 400,
+                              fontFamily: "'DM Sans', sans-serif",
+                              boxShadow: theme === opt ? "0 0 14px rgba(0,245,160,0.12)" : "none",
+                              transition: "all 0.18s",
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                            }}
+                          >
+                            {theme === opt && <Check size={12} />}
+                            {opt}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </Card>
                   )}
 
-                  {/* SECURITY */}
+                  {/* ── SECURITY ── */}
                   {activeTab === "Security" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">Security</h3>
-                      <input
-                        type="password"
-                        placeholder="New Password"
-                        className="input max-w-md"
-                      />
-                    </section>
+                    <Card title="Change Password" description="Keep your account secure">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 0 18px" }}>
+                        <DarkInput value={password} onChange={setPassword} placeholder="New Password" type="password" />
+                        <DarkInput value="" onChange={() => {}} placeholder="Confirm New Password" type="password" />
+                      </div>
+                    </Card>
                   )}
 
-                  {/* ADVANCED */}
+                  {/* ── ADVANCED ── */}
                   {activeTab === "Advanced" && (
-                    <section className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <h3 className="text-lg font-semibold">Advanced</h3>
-                      <label className="flex gap-3">
-                        <input type="checkbox" /> Enable beta features
-                      </label>
-                    </section>
+                    <Card title="Advanced Options" description="Experimental and developer features">
+                      <SettingRow label="Beta Features" description="Try new features before they're released">
+                        <Toggle value={betaFeatures} onChange={setBetaFeatures} />
+                      </SettingRow>
+                      <div style={{ paddingBottom: 4 }} />
+                    </Card>
                   )}
+
                 </motion.div>
               </AnimatePresence>
             </div>
           </div>
 
-          {/* FOOTER */}
-          <div className="border-t px-6 py-4 flex justify-end">
-            <button onClick={handleSaveChanges} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">
-              Save Changes
-            </button>
+          {/* Footer */}
+          <div style={{
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            padding: "14px 24px",
+            display: "flex", justifyContent: "flex-end", gap: 10,
+            background: "rgba(255,255,255,0.015)", flexShrink: 0,
+          }}>
+            <motion.button
+              whileHover={{ background: "rgba(255,255,255,0.07)" }}
+              whileTap={{ scale: 0.97 }}
+              onClick={onCloseSettings}
+              style={{
+                padding: "10px 22px", borderRadius: 12, cursor: "pointer",
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 500,
+                fontFamily: "'DM Sans', sans-serif", transition: "background 0.15s",
+              }}
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03, boxShadow: "0 0 24px rgba(0,245,160,0.4)" }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleSaveChanges}
+              disabled={saving}
+              style={{
+                padding: "10px 26px", borderRadius: 12, cursor: "pointer", border: "none",
+                background: saving ? "rgba(0,245,160,0.4)" : "linear-gradient(135deg, #00f5a0, #00d9f5)",
+                color: "#000", fontSize: 14, fontWeight: 700,
+                fontFamily: "'DM Sans', sans-serif",
+                boxShadow: "0 4px 16px rgba(0,245,160,0.25)",
+                display: "flex", alignItems: "center", gap: 8,
+                transition: "opacity 0.15s",
+              }}
+            >
+              {saving ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    style={{
+                      width: 14, height: 14, border: "2px solid rgba(0,0,0,0.3)",
+                      borderTopColor: "#000", borderRadius: "50%",
+                    }}
+                  />
+                  Saving…
+                </>
+              ) : "Save Changes"}
+            </motion.button>
           </div>
         </motion.div>
       </motion.div>
