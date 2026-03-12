@@ -2,20 +2,18 @@ import { Route, Routes } from 'react-router-dom'
 import SignUp from './pages/auth/SignUp'
 import Login from './pages/auth/Login'
 import ChatHome from './pages/ChatHome'
-import "react-toastify/dist/ReactToastify.css";
-import { ToastContainer } from "react-toastify";
 import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 import ForgotPasswordForm from './pages/ForgotPassword'
 import ResetPasswordForm from './pages/ResetPassword'
 import LandingPage from './pages/LandingPage'
 import ChatLanding from './pages/ChatLanding'
+import NotFound from './pages/NotFound'
 import { NotificationProvider } from './components/NotificationContext';
 
 import './App.css'
 
 function App() {
-
   return (
     <NotificationProvider>
       <div>
@@ -62,6 +60,9 @@ function App() {
               <ChatHome/>
             </ProtectedRoute>
           }/>
+
+          {/* ── 404 catch-all — must always be last ── */}
+          <Route path="*" element={<NotFound />} />
 
         </Routes>
       </div>
