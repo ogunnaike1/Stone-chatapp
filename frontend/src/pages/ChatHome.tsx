@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatRoom, { type Conversation, type Message } from "../components/ChatRoom";
 import MessageList from "../components/MessageList";
@@ -23,13 +23,12 @@ type FriendRequest = {
   fromAvatar: string | null;
 };
 
-// ── Sort conversations: most recent message first ──
 const sortConversations = (convs: Conversation[]): Conversation[] =>
   [...convs].sort((a, b) => {
-    if (!a.time && !b.time) return 0;
-    if (!a.time) return 1;
-    if (!b.time) return -1;
-    return new Date(b.time).getTime() - new Date(a.time).getTime();
+    if (!a.rawTime && !b.rawTime) return 0;
+    if (!a.rawTime) return 1;
+    if (!b.rawTime) return -1;
+    return new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime();
   });
 
 const ChatHome = () => {
@@ -45,12 +44,22 @@ const ChatHome = () => {
   const [chatLoading, setChatLoading]               = useState(false);
   const [showChatRoomMobile, setShowChatRoomMobile] = useState(false);
   const [loaded, setLoaded]                         = useState(false);
+  const [unreadCounts, setUnreadCounts]             = useState<Record<string, number>>({});
+  const [pendingRequests, setPendingRequests]       = useState(0);
 
-  // unreadCounts: { [conversationId]: number }
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  // useRef — always holds the latest value, readable inside any socket
+  // closure without going stale. useCallback does NOT solve this.
+  const activeChatIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    activeChatIdRef.current = activeChat?._id;
+  }, [activeChat]);
 
-  // pendingRequests: number of unread friend requests
-  const [pendingRequests, setPendingRequests] = useState(0);
+  // Keeps a mirror of conversations for reading inside socket handlers
+  // without needing conversations in the socket effect's dep array
+  const conversationsRef = useRef<Conversation[]>([]);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   /* ── LOAD CONVERSATIONS ── */
   useEffect(() => {
@@ -72,6 +81,7 @@ const ChatHome = () => {
             avatar: u.profilePicture || FALLBACK_AVATAR,
             lastMessage: "",
             time: "",
+            rawTime: "",
             messages: [],
           }));
 
@@ -91,17 +101,17 @@ const ChatHome = () => {
               id: msg._id,
               text: msg.text,
               sender: msg.senderId === loggedInUserId ? "me" : "other",
-              time: new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
+              time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              rawTime: msg.createdAt,
             }));
 
+          const lastMsg = convMessages.at(-1);
           return {
             ...conv,
             messages: convMessages,
-            lastMessage: convMessages.at(-1)?.text || "",
-            time: convMessages.at(-1)?.time || "",
+            lastMessage: lastMsg?.text || "",
+            time: lastMsg?.time || "",
+            rawTime: (lastMsg as any)?.rawTime || "",
           };
         });
 
@@ -125,63 +135,59 @@ const ChatHome = () => {
   /* ── SOCKET: RECEIVE MESSAGE ── */
   useEffect(() => {
     const handleReceiveMessage = (msg: SocketMessage) => {
+      // Only handle messages sent by someone else
+      if (msg.from === loggedInUserId) return;
+
+      const displayTime = new Date(msg.createdAt).toLocaleTimeString([], {
+        hour: "2-digit", minute: "2-digit",
+      });
+
       const incoming: Message = {
         id: msg.messageId,
         text: msg.text,
-        sender: msg.from === loggedInUserId ? "me" : "other",
-        time: new Date(msg.createdAt).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        sender: "other",
+        time: displayTime,
       };
 
+      // Read sender name from the ref — avoids a second setState call
+      const senderName = conversationsRef.current.find(c => c._id === msg.from)?.name ?? "New message";
+
+      // One single setState — update + re-sort in one pass
       setConversations(prev => {
         const updated = prev.map(conv => {
-          if (conv._id !== msg.from && conv._id !== msg.to) return conv;
-          if (conv.messages.some(m => m.id === msg.messageId)) return conv;
+          if (conv._id !== msg.from) return conv;
+          if (conv.messages.some(m => m.id === msg.messageId)) return conv; // dedupe
           return {
             ...conv,
             lastMessage: msg.text,
-            time: incoming.time,
+            time: displayTime,
+            rawTime: msg.createdAt,
             messages: [...conv.messages, incoming],
           };
         });
-        // ── Instant re-sort after new message ──
         return sortConversations(updated);
       });
 
-      // Only show notification + increment badge if chat is NOT currently open
-      setActiveChat(current => {
-        const isOpenChat = current?._id === msg.from || current?._id === msg.to;
+      // Read the ref directly — always current, never stale
+      const isOpenChat = activeChatIdRef.current === msg.from;
 
-        if (!isOpenChat) {
-          // Unread badge
-          const senderId = msg.from === loggedInUserId ? msg.to : msg.from;
-          setUnreadCounts(prev => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1,
-          }));
+      if (!isOpenChat) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [msg.from]: (prev[msg.from] || 0) + 1,
+        }));
 
-          // Toast notification — find sender name from conversations
-          setConversations(convs => {
-            const sender = convs.find(c => c._id === msg.from);
-            if (sender) {
-              notify({
-                type: "info",
-                title: sender.name,
-                message: msg.text.length > 60 ? msg.text.slice(0, 60) + "…" : msg.text,
-              });
-            }
-            return convs; // no change, just reading
-          });
-        }
-
-        return current; // don't change activeChat
-      });
+        notify({
+          type: "info",
+          title: senderName,
+          message: msg.text.length > 60 ? msg.text.slice(0, 60) + "…" : msg.text,
+        });
+      }
     };
 
     socket.on("receive_message", handleReceiveMessage);
     return () => { socket.off("receive_message", handleReceiveMessage); };
+    // activeChatIdRef + conversationsRef are refs — stable, no need in deps
   }, [loggedInUserId, notify]);
 
   /* ── SOCKET: FRIEND REQUEST RECEIVED ── */
@@ -194,7 +200,6 @@ const ChatHome = () => {
         message: `${req.fromName} sent you a friend request`,
       });
     };
-
     socket.on("friend_request_received", handleFriendRequest);
     return () => { socket.off("friend_request_received", handleFriendRequest); };
   }, [notify]);
@@ -207,23 +212,20 @@ const ChatHome = () => {
         title: "Friend Request Accepted",
         message: `${data.byName} accepted your friend request!`,
       });
-
-      // Add them to conversations list instantly without a reload
       const newConv: Conversation = {
         _id: data.byId,
         name: data.byName,
         avatar: data.byAvatar || FALLBACK_AVATAR,
         lastMessage: "",
         time: "",
+        rawTime: "",
         messages: [],
       };
-
       setConversations(prev => {
-        if (prev.some(c => c._id === data.byId)) return prev; // already there
+        if (prev.some(c => c._id === data.byId)) return prev;
         return sortConversations([...prev, newConv]);
       });
     };
-
     socket.on("friend_request_accepted", handleRequestAccepted);
     return () => { socket.off("friend_request_accepted", handleRequestAccepted); };
   }, [notify]);
@@ -234,13 +236,11 @@ const ChatHome = () => {
     setActiveChat(chat);
     setChatLoading(true);
     setShowChatRoomMobile(true);
-    // Clear unread badge for this conversation
     setUnreadCounts(prev => ({ ...prev, [chat._id]: 0 }));
   };
 
   const handleBack = () => setShowChatRoomMobile(false);
 
-  /* ── CLEAR PENDING REQUESTS (called when FindFriends modal opens) ── */
   const handleClearPendingRequests = useCallback(() => {
     setPendingRequests(0);
   }, []);
@@ -257,23 +257,12 @@ const ChatHome = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: loaded ? 1 : 0 }}
         transition={{ duration: 0.4 }}
-        style={{
-          height: "100vh",
-          width: "100vw",
-          overflow: "hidden",
-          background: "#070a0f",
-          fontFamily: "'DM Sans', sans-serif",
-        }}
+        style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "#070a0f", fontFamily: "'DM Sans', sans-serif" }}
       >
-
-        {/* ══════════════════════════════════════════
-            DESKTOP (lg+)
-        ══════════════════════════════════════════ */}
+        {/* DESKTOP */}
         <div className="hidden lg:flex" style={{ height: "100vh", width: "100%" }}>
-
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             style={{ width: "30vw", flexShrink: 0, height: "100vh", borderRight: "1px solid rgba(255,255,255,0.06)" }}
           >
@@ -288,8 +277,7 @@ const ChatHome = () => {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
             style={{ flex: 1, height: "100vh", overflow: "hidden", display: "flex", position: "relative" }}
           >
@@ -303,7 +291,6 @@ const ChatHome = () => {
                 />
               )}
             </AnimatePresence>
-
             <ChatRoom
               activeChat={activeChat}
               conversations={conversations}
@@ -312,16 +299,10 @@ const ChatHome = () => {
               myAvatar={myAvatar}
             />
           </motion.div>
-
         </div>
 
-        {/* ══════════════════════════════════════════
-            MOBILE (< lg)
-        ══════════════════════════════════════════ */}
-        <div
-          className="block lg:hidden"
-          style={{ height: "100vh", width: "100%", position: "relative", overflow: "hidden" }}
-        >
+        {/* MOBILE */}
+        <div className="block lg:hidden" style={{ height: "100vh", width: "100%", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", inset: 0 }}>
             <MessageList
               conversations={conversations}
@@ -337,9 +318,7 @@ const ChatHome = () => {
             {showChatRoomMobile && (
               <motion.div
                 key="mobile-chatroom"
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
+                initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.9 }}
                 style={{ position: "absolute", inset: 0, zIndex: 100, background: "#070a0f", willChange: "transform" }}
               >
@@ -353,7 +332,6 @@ const ChatHome = () => {
                     />
                   )}
                 </AnimatePresence>
-
                 <ChatRoom
                   activeChat={activeChat}
                   conversations={conversations}
@@ -365,9 +343,7 @@ const ChatHome = () => {
               </motion.div>
             )}
           </AnimatePresence>
-
         </div>
-
       </motion.div>
     </>
   );

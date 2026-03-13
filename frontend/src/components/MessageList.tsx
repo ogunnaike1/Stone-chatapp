@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IoMdSearch } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { BsThreeDotsVertical, BsBellFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import LogoutModal from "./LogoutModal";
 import { logout } from "../utils/auth";
@@ -10,6 +10,8 @@ import type { Conversation } from "./ChatRoom";
 import SettingsForm from "./SettingsForm";
 import ChatDropdown from "./ChatDropDown";
 import FindFriendsModal from "./FindFriendsModal";
+import { useNotification } from "./NotificationContext";
+import NotificationsModal from "./NotificationsModal";
 
 type MessageListProps = {
   conversations: Conversation[];
@@ -28,22 +30,29 @@ const MessageList = ({
   pendingRequests = 0,
   onOpenFindFriends,
 }: MessageListProps) => {
-  const [showLogout, setShowLogout]         = useState(false);
-  const [showDropDown, setShowDropDown]     = useState(false);
-  const [showFindFriend, setShowFindFriend] = useState(false);
-  const [showSetting, setShowSettings]     = useState(false);
-  const [searchTerm, setSearchTerm]         = useState("");
-  const [searchFocused, setSearchFocused]   = useState(false);
+  const [showLogout, setShowLogout]               = useState(false);
+  const [showDropDown, setShowDropDown]           = useState(false);
+  const [showFindFriend, setShowFindFriend]       = useState(false);
+  const [showSetting, setShowSettings]           = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [searchTerm, setSearchTerm]               = useState("");
+  const [searchFocused, setSearchFocused]         = useState(false);
   const navigate = useNavigate();
+
+  const { unreadCount, markAllRead } = useNotification();
 
   const handleLogout = () => { logout(); navigate("/auth/login"); };
 
   const handleOpenFindFriend = () => {
     setShowFindFriend(true);
-    onOpenFindFriends?.(); // clears the pending badge in ChatHome
+    onOpenFindFriends?.();
   };
 
-  // Conversations are already sorted by ChatHome — just filter here
+  const handleOpenNotifications = () => {
+    setShowNotifications(true);
+    markAllRead(); // mark all read when panel opens
+  };
+
   const filteredConversations = useMemo(() => {
     if (!searchTerm) return conversations;
     return conversations.filter(u =>
@@ -117,7 +126,53 @@ const MessageList = ({
               transition={{ delay: 0.2 }}
               style={{ display: "flex", gap: 8, alignItems: "center" }}
             >
-              {/* Add friend button — with friend request badge */}
+              {/* ── NOTIFICATION BELL ── */}
+              <div style={{ position: "relative" }}>
+                <motion.button
+                  whileHover={{ scale: 1.08, background: "rgba(0,217,245,0.15)" }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={handleOpenNotifications}
+                  title="Notifications"
+                  style={{
+                    width: 34, height: 34, borderRadius: 10,
+                    background: showNotifications
+                      ? "rgba(0,217,245,0.15)"
+                      : "rgba(0,217,245,0.07)",
+                    border: `1px solid ${showNotifications ? "rgba(0,217,245,0.4)" : "rgba(0,217,245,0.18)"}`,
+                    color: "#00d9f5", display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: "pointer", fontSize: 16,
+                    transition: "background 0.2s, border-color 0.2s",
+                  }}
+                >
+                  <BsBellFill />
+                </motion.button>
+
+                {/* Unread badge */}
+                <AnimatePresence>
+                  {unreadCount > 0 && !showNotifications && (
+                    <motion.div
+                      key="notif-badge"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      style={{
+                        position: "absolute", top: -6, right: -6,
+                        minWidth: 18, height: 18, borderRadius: 99,
+                        background: "linear-gradient(135deg, #00d9f5, #7b2fff)",
+                        border: "2px solid #070a0f",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 10, fontWeight: 700, color: "#fff",
+                        padding: "0 4px", pointerEvents: "none",
+                      }}
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Add friend button */}
               <div style={{ position: "relative" }}>
                 <motion.button
                   whileHover={{ scale: 1.08, background: "rgba(0,245,160,0.15)" }}
@@ -134,7 +189,6 @@ const MessageList = ({
                   <FaPlus />
                 </motion.button>
 
-                {/* Friend request badge */}
                 <AnimatePresence>
                   {pendingRequests > 0 && (
                     <motion.div
@@ -144,16 +198,12 @@ const MessageList = ({
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 400, damping: 20 }}
                       style={{
-                        position: "absolute",
-                        top: -6, right: -6,
-                        minWidth: 18, height: 18,
-                        borderRadius: 99,
-                        background: "#ff4d6a",
-                        border: "2px solid #070a0f",
+                        position: "absolute", top: -6, right: -6,
+                        minWidth: 18, height: 18, borderRadius: 99,
+                        background: "#ff4d6a", border: "2px solid #070a0f",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: 10, fontWeight: 700, color: "#fff",
-                        padding: "0 4px",
-                        pointerEvents: "none",
+                        padding: "0 4px", pointerEvents: "none",
                       }}
                     >
                       {pendingRequests > 9 ? "9+" : pendingRequests}
@@ -261,8 +311,8 @@ const MessageList = ({
           <AnimatePresence mode="popLayout">
             {filteredConversations.length > 0 ? (
               filteredConversations.map((conv, i) => {
-                const isActive  = conv._id === activeChatId;
-                const unread    = unreadCounts[conv._id] || 0;
+                const isActive = conv._id === activeChatId;
+                const unread   = unreadCounts[conv._id] || 0;
 
                 return (
                   <motion.div
@@ -276,15 +326,13 @@ const MessageList = ({
                     whileHover={{ background: isActive ? "rgba(0,245,160,0.08)" : "rgba(255,255,255,0.04)" }}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
-                      padding: "12px 20px",
-                      cursor: "pointer",
+                      padding: "12px 20px", cursor: "pointer",
                       background: isActive ? "rgba(0,245,160,0.07)" : "transparent",
                       borderLeft: isActive ? "2px solid #00f5a0" : "2px solid transparent",
                       transition: "background 0.2s, border-color 0.2s",
                       position: "relative",
                     }}
                   >
-                    {/* Avatar */}
                     <div style={{ position: "relative", flexShrink: 0 }}>
                       <img
                         src={conv.avatar}
@@ -303,7 +351,6 @@ const MessageList = ({
                       }} />
                     </div>
 
-                    {/* Text */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                         <span style={{
@@ -327,7 +374,6 @@ const MessageList = ({
                       </p>
                     </div>
 
-                    {/* Unread badge */}
                     <AnimatePresence>
                       {unread > 0 && !isActive && (
                         <motion.div
@@ -337,13 +383,11 @@ const MessageList = ({
                           exit={{ scale: 0, opacity: 0 }}
                           transition={{ type: "spring", stiffness: 400, damping: 20 }}
                           style={{
-                            minWidth: 20, height: 20,
-                            borderRadius: 99,
+                            minWidth: 20, height: 20, borderRadius: 99,
                             background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             fontSize: 10, fontWeight: 700, color: "#000",
-                            padding: "0 5px",
-                            flexShrink: 0,
+                            padding: "0 5px", flexShrink: 0,
                           }}
                         >
                           {unread > 99 ? "99+" : unread}
@@ -368,6 +412,7 @@ const MessageList = ({
         </div>
 
         {/* Modals */}
+        <NotificationsModal isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
         {showFindFriend && <FindFriendsModal isOpen={showFindFriend} onClose={() => setShowFindFriend(false)} />}
         {showSetting && <SettingsForm onCloseSettings={() => setShowSettings(false)} />}
         {showLogout && <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />}
