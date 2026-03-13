@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cloudinary = require("../Utils/Cloudinary");
 const { isPasswordValid, getPasswordErrors } = require("../utils/passwordValidator");
+const { generateOTP, sendWelcomeMail, sendPasswordResetOTP } = require("../utils/Mailer");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
@@ -18,7 +19,6 @@ const SignUpUser = async (req, res) => {
       return res.status(400).json({ message: "All fields are required", status: false });
     }
 
-    // ── Password validation ──
     if (!isPasswordValid(password)) {
       const errors = getPasswordErrors(password);
       return res.status(400).json({
@@ -32,6 +32,11 @@ const SignUpUser = async (req, res) => {
     const newUser = await userModel.create({ username, email, password: hashedpassword });
 
     if (newUser) {
+      // Fire-and-forget welcome email — don't block the response
+      sendWelcomeMail(email, username).catch((err) =>
+        console.error("Welcome mail failed:", err.message)
+      );
+
       return res.status(201).json({
         message: "User created successfully",
         status: true,
@@ -43,9 +48,8 @@ const SignUpUser = async (req, res) => {
       });
     }
   } catch (error) {
-    // MongoDB duplicate key (unique index violation)
     if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0]; // "username" or "email"
+      const field = Object.keys(error.keyPattern)[0];
       const messages = {
         username: "That username is already taken. Please choose a different one.",
         email: "An account with that email already exists. Try logging in instead.",
@@ -142,18 +146,94 @@ const UploadProfilePic = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
-   RESET PASSWORD
+   FORGOT PASSWORD — sends 4-digit OTP
+───────────────────────────────────────────── */
+const ForgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required", status: false });
+    }
+
+    const user = await userModel.findOne({ email });
+
+    // Always 200 — don't leak whether the email is registered
+    if (!user) {
+      return res.status(200).json({
+        message: "If that email exists, a reset code has been sent.",
+        status: true,
+      });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.resetOTP = otp;
+    user.resetOTPExpires = expiresAt;
+    await user.save();
+
+    await sendPasswordResetOTP(email, user.username, otp);
+
+    return res.status(200).json({
+      message: "Reset code sent to your email.",
+      status: true,
+    });
+  } catch (error) {
+    console.error("ForgotPassword error:", error);
+    return res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   VERIFY OTP
+───────────────────────────────────────────── */
+const VerifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and code are required", status: false });
+    }
+
+    const user = await userModel.findOne({
+      email,
+      resetOTP: otp,
+      resetOTPExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired code", status: false });
+    }
+
+    // Short-lived JWT so the client can proceed to step 3 without re-entering email
+    const resetToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "15m" });
+
+    return res.status(200).json({ message: "Code verified", status: true, resetToken });
+  } catch (error) {
+    console.error("VerifyOTP error:", error);
+    return res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   RESET PASSWORD — requires resetToken from VerifyOTP
 ───────────────────────────────────────────── */
 const ResetPassword = async (req, res) => {
   try {
-    const { token } = req.params;
-    const { password } = req.body;
+    const { resetToken, password } = req.body;
 
-    if (!password) {
-      return res.status(400).json({ message: "Password is required", status: false });
+    if (!resetToken || !password) {
+      return res.status(400).json({ message: "Token and new password are required", status: false });
     }
 
-    // ── Password validation ──
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, JWT_SECRET);
+    } catch {
+      return res.status(400).json({ message: "Reset session expired. Please start again.", status: false });
+    }
+
     if (!isPasswordValid(password)) {
       const errors = getPasswordErrors(password);
       return res.status(400).json({
@@ -163,24 +243,20 @@ const ResetPassword = async (req, res) => {
       });
     }
 
-    const user = await userModel.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-    });
-
+    const user = await userModel.findById(decoded.id);
     if (!user) {
-      return res.status(400).json({ message: "Invalid or expired token", status: false });
+      return res.status(404).json({ message: "User not found", status: false });
     }
 
     user.password = await bcrypt.hash(password, 10);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    user.resetOTP = undefined;
+    user.resetOTPExpires = undefined;
     await user.save();
 
     return res.status(200).json({ message: "Password reset successful", status: true });
   } catch (error) {
     console.error("ResetPassword error:", error);
-    res.status(500).json({ message: "Server error", status: false });
+    return res.status(500).json({ message: "Server error", status: false });
   }
 };
 
@@ -289,8 +365,10 @@ module.exports = {
   SignUpUser,
   LoginUser,
   UploadProfilePic,
-  getAllUsers,
+  ForgotPassword,
+  VerifyOTP,
   ResetPassword,
+  getAllUsers,
   searchUsers,
   addFriend,
   removeFriend,
