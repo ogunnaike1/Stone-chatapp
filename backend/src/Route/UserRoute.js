@@ -23,13 +23,9 @@ userRouter.get("/friends/search",  verifyToken, searchUsers);
 userRouter.get("/friends",  verifyToken, getMyFriends);
 userRouter.post("/friends/add", verifyToken, addFriend);
 userRouter.delete("/friends/remove/:friendId", verifyToken, removeFriend);
-
 userRouter.get("/friends/requests/sent", verifyToken, getSentFriendRequests);
-
 userRouter.post("/friends/request", verifyToken, sendFriendRequest);
-
 userRouter.post("/friends/accept", verifyToken, acceptFriendRequest);
-
 userRouter.post("/friends/reject", verifyToken, rejectFriendRequest);
 userRouter.post("/friends/request/cancel", verifyToken, cancelFriendRequest);
 userRouter.get("/friends/requests/incoming", verifyToken, getIncomingFriendRequests);
