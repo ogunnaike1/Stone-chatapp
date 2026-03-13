@@ -6,7 +6,6 @@ import ChatHome from './pages/ChatHome'
 import PublicRoute from './components/PublicRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 import ForgotPasswordForm from './pages/ForgotPassword'
-import ResetPasswordForm from './pages/ResetPassword'
 import LandingPage from './pages/LandingPage'
 import ChatLanding from './pages/ChatLanding'
 import NotFound from './pages/NotFound'
@@ -58,11 +57,6 @@ const App = () => {
             </PublicRoute>
           } />
 
-          <Route path="/reset-password/:token" element={
-            <PublicRoute>
-              <ResetPasswordForm />
-            </PublicRoute>
-          } />
 
           <Route path="/chathome" element={
             <ProtectedRoute>
