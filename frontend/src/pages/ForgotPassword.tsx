@@ -4,21 +4,23 @@ import { useNavigate } from "react-router-dom";
 import { MdEmail } from "react-icons/md";
 import { FaChevronLeft, FaEye, FaEyeSlash } from "react-icons/fa6";
 import api from "../api/axios";
+import { useNotification } from "../components/NotificationContext";
+import { NotificationContainer } from "../components/NotificationToast";
 
-// ── Password rules (mirror backend) ───────────────────────────────────────────
 const RULES = [
-  { id: "len",     label: "At least 8 characters",       test: (p: string) => p.length >= 8 },
-  { id: "upper",   label: "One uppercase letter",         test: (p: string) => /[A-Z]/.test(p) },
-  { id: "lower",   label: "One lowercase letter",         test: (p: string) => /[a-z]/.test(p) },
-  { id: "digit",   label: "One number",                   test: (p: string) => /\d/.test(p) },
-  { id: "special", label: "One special character",        test: (p: string) => /[^A-Za-z0-9]/.test(p) },
-  { id: "space",   label: "No spaces",                    test: (p: string) => !/\s/.test(p) },
+  { id: "len",     label: "At least 8 characters",  test: (p: string) => p.length >= 8 },
+  { id: "upper",   label: "One uppercase letter",    test: (p: string) => /[A-Z]/.test(p) },
+  { id: "lower",   label: "One lowercase letter",    test: (p: string) => /[a-z]/.test(p) },
+  { id: "digit",   label: "One number",              test: (p: string) => /\d/.test(p) },
+  { id: "special", label: "One special character",   test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+  { id: "space",   label: "No spaces",               test: (p: string) => !/\s/.test(p) },
 ];
 
-type Step = 1 | 2 | 3 | 4; // 1=email, 2=OTP, 3=new password, 4=success
+type Step = 1 | 2 | 3 | 4;
 
 const ForgotPasswordForm = () => {
   const navigate = useNavigate();
+  const { success, error: notifyError, info } = useNotification();
 
   const [step, setStep]               = useState<Step>(1);
   const [email, setEmail]             = useState("");
@@ -28,7 +30,7 @@ const ForgotPasswordForm = () => {
   const [confirm, setConfirm]         = useState("");
   const [showPw, setShowPw]           = useState(false);
   const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState("");
+  const [fieldError, setFieldError]   = useState(""); // inline field errors only
   const [resendTimer, setResendTimer] = useState(0);
 
   const otpRefs = [
@@ -38,7 +40,6 @@ const ForgotPasswordForm = () => {
     useRef<HTMLInputElement>(null),
   ];
 
-  // ── OTP input handling ─────────────────────────────────────────────────────
   const handleOtpChange = (i: number, val: string) => {
     if (!/^\d?$/.test(val)) return;
     const next = [...otp];
@@ -60,53 +61,70 @@ const ForgotPasswordForm = () => {
 
   // ── STEP 1: send OTP ───────────────────────────────────────────────────────
   const handleSendOTP = async () => {
-    setError("");
-    if (!email.trim()) { setError("Please enter your email."); return; }
+    setFieldError("");
+    if (!email.trim()) { setFieldError("Please enter your email."); return; }
     setLoading(true);
     try {
       await api.post("/user/forgot-password", { email });
       setStep(2);
       startResendTimer();
+      info(
+        "Code sent!",
+        `A 4-digit reset code has been sent to ${email}`
+      );
     } catch (err: any) {
-      setError(err.response?.data?.message || "Something went wrong.");
+      const msg = err.response?.data?.message || "Something went wrong.";
+      setFieldError(msg);
+      notifyError("Failed to send code", msg);
     } finally { setLoading(false); }
   };
 
   // ── STEP 2: verify OTP ─────────────────────────────────────────────────────
   const handleVerifyOTP = async () => {
-    setError("");
+    setFieldError("");
     const code = otp.join("");
-    if (code.length < 4) { setError("Enter the full 4-digit code."); return; }
+    if (code.length < 4) { setFieldError("Enter the full 4-digit code."); return; }
     setLoading(true);
     try {
       const res = await api.post("/user/verify-otp", { email, otp: code });
       setResetToken(res.data.resetToken);
       setStep(3);
+      // No toast here — moving to step 3 is confirmation enough
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid or expired code.");
+      const msg = err.response?.data?.message || "Invalid or expired code.";
+      setFieldError(msg);
+      notifyError("Wrong code", "That code is incorrect or has expired. Please try again.");
       setOtp(["", "", "", ""]);
       otpRefs[0].current?.focus();
     } finally { setLoading(false); }
   };
 
   // ── STEP 3: set new password ───────────────────────────────────────────────
-  const passedRules = RULES.filter(r => r.test(password));
-  const allPass = passedRules.length === RULES.length;
+  const allPass = RULES.every(r => r.test(password));
 
   const handleResetPassword = async () => {
-    setError("");
-    if (!allPass) { setError("Password doesn't meet all requirements."); return; }
-    if (password !== confirm) { setError("Passwords do not match."); return; }
+    setFieldError("");
+    if (!allPass) { setFieldError("Password doesn't meet all requirements."); return; }
+    if (password !== confirm) {
+      setFieldError("Passwords do not match.");
+      notifyError("Passwords don't match", "Make sure both password fields are identical.");
+      return;
+    }
     setLoading(true);
     try {
       await api.post("/user/reset-password", { resetToken, password });
+      success(
+        "Password reset!",
+        "Your password has been updated. You can now log in."
+      );
       setStep(4);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Reset failed. Please try again.");
+      const msg = err.response?.data?.message || "Reset failed. Please try again.";
+      setFieldError(msg);
+      notifyError("Reset failed", msg);
     } finally { setLoading(false); }
   };
 
-  // ── Shared input style ─────────────────────────────────────────────────────
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "12px 16px",
     background: "rgba(255,255,255,0.04)",
@@ -128,6 +146,7 @@ const ForgotPasswordForm = () => {
 
   return (
     <>
+      <NotificationContainer />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -139,7 +158,8 @@ const ForgotPasswordForm = () => {
       <div style={{
         minHeight: "100vh", background: "#070a0f",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif", padding: 24, position: "relative", overflow: "hidden",
+        fontFamily: "'DM Sans', sans-serif", padding: 24,
+        position: "relative", overflow: "hidden",
       }}>
         {/* Orbs */}
         <motion.div animate={{ y: [0,-30,0] }} transition={{ duration: 9, repeat: Infinity }}
@@ -160,11 +180,9 @@ const ForgotPasswordForm = () => {
             position: "relative",
           }}
         >
-          {/* Top accent */}
           <div style={{ height: 3, background: "linear-gradient(90deg,#00f5a0,#00d9f5,#7b2fff)" }} />
 
           <div style={{ padding: "36px 36px 40px" }}>
-            {/* Logo */}
             <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, background:"linear-gradient(90deg,#00f5a0,#00d9f5)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", letterSpacing:"-0.5px", marginBottom:28 }}>
               StoneChat
             </div>
@@ -189,7 +207,7 @@ const ForgotPasswordForm = () => {
                     />
                   </div>
 
-                  {error && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12 }}>{error}</p>}
+                  {fieldError && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12 }}>{fieldError}</p>}
 
                   <motion.button whileTap={{ scale:0.97 }} onClick={handleSendOTP} disabled={loading} style={btnStyle}>
                     {loading ? "Sending…" : "Send Reset Code →"}
@@ -213,17 +231,14 @@ const ForgotPasswordForm = () => {
                     </div>
                   </div>
 
-                  {/* OTP boxes */}
                   <div style={{ display:"flex", gap:12, justifyContent:"center", marginBottom:20 }}>
                     {otp.map((digit, i) => (
                       <input
-                        key={i}
-                        ref={otpRefs[i]}
+                        key={i} ref={otpRefs[i]}
                         value={digit}
                         onChange={e => handleOtpChange(i, e.target.value)}
                         onKeyDown={e => handleOtpKeyDown(i, e)}
-                        maxLength={1}
-                        inputMode="numeric"
+                        maxLength={1} inputMode="numeric"
                         style={{
                           width:60, height:68, textAlign:"center",
                           fontSize:26, fontWeight:800, color:"#00f5a0",
@@ -237,7 +252,7 @@ const ForgotPasswordForm = () => {
                     ))}
                   </div>
 
-                  {error && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12, textAlign:"center" }}>{error}</p>}
+                  {fieldError && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12, textAlign:"center" }}>{fieldError}</p>}
 
                   <motion.button whileTap={{ scale:0.97 }} onClick={handleVerifyOTP} disabled={loading} style={btnStyle}>
                     {loading ? "Verifying…" : "Verify Code →"}
@@ -247,14 +262,17 @@ const ForgotPasswordForm = () => {
                     {resendTimer > 0 ? (
                       <span style={{ color:"rgba(255,255,255,0.25)" }}>Resend in {resendTimer}s</span>
                     ) : (
-                      <button onClick={() => { setError(""); handleSendOTP(); }} style={{ background:"none", border:"none", color:"#00d9f5", fontSize:13, cursor:"pointer" }}>
+                      <button
+                        onClick={() => { setFieldError(""); handleSendOTP(); }}
+                        style={{ background:"none", border:"none", color:"#00d9f5", fontSize:13, cursor:"pointer" }}
+                      >
                         Resend code
                       </button>
                     )}
                   </div>
 
                   <div style={{ textAlign:"center", marginTop:10 }}>
-                    <button onClick={() => { setStep(1); setOtp(["","","",""]); setError(""); }} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:5, margin:"0 auto" }}>
+                    <button onClick={() => { setStep(1); setOtp(["","","",""]); setFieldError(""); }} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:5, margin:"0 auto" }}>
                       <FaChevronLeft style={{ fontSize:10 }} /> Change email
                     </button>
                   </div>
@@ -269,7 +287,6 @@ const ForgotPasswordForm = () => {
                     <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)" }}>Choose a strong password for your account.</div>
                   </div>
 
-                  {/* Password field */}
                   <div style={{ position:"relative", marginBottom:12 }}>
                     <input
                       style={{ ...inputStyle, paddingRight:48 }}
@@ -282,7 +299,6 @@ const ForgotPasswordForm = () => {
                     </button>
                   </div>
 
-                  {/* Confirm field */}
                   <div style={{ position:"relative", marginBottom:16 }}>
                     <input
                       style={{ ...inputStyle, paddingRight:48, borderColor: confirm && password !== confirm ? "rgba(255,77,106,0.5)" : "rgba(255,255,255,0.1)" }}
@@ -292,7 +308,6 @@ const ForgotPasswordForm = () => {
                     />
                   </div>
 
-                  {/* Rules */}
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px 12px", marginBottom:20 }}>
                     {RULES.map(r => {
                       const ok = r.test(password);
@@ -306,7 +321,7 @@ const ForgotPasswordForm = () => {
                     })}
                   </div>
 
-                  {error && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12 }}>{error}</p>}
+                  {fieldError && <p style={{ color:"#ff4d6a", fontSize:12, marginBottom:12 }}>{fieldError}</p>}
 
                   <motion.button whileTap={{ scale:0.97 }} onClick={handleResetPassword} disabled={loading || !allPass} style={{ ...btnStyle, opacity: !allPass ? 0.5 : 1 }}>
                     {loading ? "Resetting…" : "Reset Password →"}
@@ -337,7 +352,6 @@ const ForgotPasswordForm = () => {
             </AnimatePresence>
           </div>
 
-          {/* Step indicator dots */}
           {step < 4 && (
             <div style={{ display:"flex", gap:6, justifyContent:"center", paddingBottom:24 }}>
               {([1,2,3] as Step[]).map(s => (
