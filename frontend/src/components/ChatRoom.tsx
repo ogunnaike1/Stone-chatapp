@@ -8,7 +8,7 @@ import LogoutModal from "./LogoutModal";
 import { logout } from "../utils/auth";
 import { socket } from "../utils/socket";
 import { formatTime } from "../utils/formatTime";
-import ChatMenuDropdown from "./ChatMenuDropDown";
+import ChatMenuDropdown from "./ChatMenuDropdown";
 import ReportUserModal from "./ReportUserModal";
 import { useNotification } from "./NotificationContext";
 import { NotificationContainer } from "./NotificationToast";

@@ -4,38 +4,42 @@ import { motion, useScroll, useTransform, AnimatePresence, useMotionValue, useSp
 import * as THREE from "three";
 
 /* ─────────────────────────────────────────────
-   DATA
+   DATA  — kept realistic for a new product
 ───────────────────────────────────────────── */
-const NAV_LINKS = ["Features", "Pricing", "About", "Blog"];
+const NAV_LINKS = [
+  { label: "Features", href: "/features" },
+  { label: "About",    href: "/about"    },
+  { label: "Pricing",  href: "#pricing"  },
+];
 
 const FEATURES = [
-  { icon:"⚡", title:"Real-time Messaging",  desc:"Sub-50ms delivery across the globe. Your words arrive before the thought fades.",        accent:"#00f5a0" },
-  { icon:"🔒", title:"End-to-End Encrypted", desc:"Military-grade encryption on every byte. Zero knowledge architecture by default.",        accent:"#00d9f5" },
-  { icon:"🌐", title:"Cross-Platform Sync",  desc:"Seamlessly move between phone, desktop, and web. Your flow never breaks.",               accent:"#7b2fff" },
-  { icon:"🤖", title:"AI Co-Pilot",          desc:"Your built-in assistant drafts, summarises, and translates on the fly.",                  accent:"#00f5a0" },
-  { icon:"🎙️", title:"Voice & Video",        desc:"Crystal clear calls with adaptive bitrate. No lag. No drop-offs.",                       accent:"#00d9f5" },
-  { icon:"📁", title:"File Vaults",          desc:"Store and share up to 10 GB per conversation. Never lose a file again.",                  accent:"#7b2fff" },
+  { icon:"⚡", title:"Real-time Messaging",   desc:"Messages arrive instantly — no polling, no delay. Powered by WebSockets so every conversation feels live.",    accent:"#00f5a0" },
+  { icon:"🔒", title:"End-to-End Encrypted",  desc:"Every message is encrypted before it leaves your device. Nobody — not even us — can read your conversations.", accent:"#00d9f5" },
+  { icon:"🌐", title:"Cross-Platform Sync",   desc:"Start a conversation on your phone and pick it up on your laptop. Your history follows you everywhere.",          accent:"#7b2fff" },
+  { icon:"🤝", title:"Friends & Contacts",    desc:"Search for people by username, send friend requests, and build your network at your own pace.",                 accent:"#00f5a0" },
+  { icon:"🔔", title:"Smart Notifications",   desc:"Get notified when it matters. Unread badges, message previews, and friend request alerts — all in one place.", accent:"#00d9f5" },
+  { icon:"📁", title:"Media Sharing",         desc:"Send images, files, and links inline. Everything stays organised inside the conversation where it belongs.",     accent:"#7b2fff" },
 ];
 
 const TESTIMONIALS = [
-  { name:"Aria Chen",  role:"Product Lead @ Figma", text:"Switched our entire team to StoneChat. The speed is unreal and the UI is chef's kiss.", avatar:"AC", color:"#e91e8c" },
-  { name:"Marcus Lee", role:"CTO @ Drift",          text:"Finally a chat app that doesn't make me want to throw my laptop. 10/10.",                avatar:"ML", color:"#9c27b0" },
-  { name:"Priya Nair", role:"Founder @ Loops",      text:"StoneChat replaced Slack, Discord, AND WhatsApp for us. Wildly good product.",           avatar:"PN", color:"#2196f3" },
+  { name:"Abdul Satar",  role:"Software Engineer",          text:"I've tried a lot of chat apps. StoneChat is the first one that felt genuinely fast from day one. The UI is clean and the notifications actually work.", avatar:"AS", color:"#00b87a" },
+  { name:"Amosu Oyindamola",   role:"Socail Media Manager",         text:"The friend request system is smooth and the message delivery is instant. Exactly what I needed to keep in touch with my team.",                          avatar:"AO", color:"#7b2fff" },
+  { name:"Ogunnaike Azeezat",role:"Artist",            text:"Finally switched from WhatsApp for my work chats. StoneChat keeps things professional and the interface doesn't get in the way.",                         avatar:"OA", color:"#00d9f5" },
 ];
 
 const MOCK_MESSAGES = [
   { from:"them", text:"hey, you seeing those new StoneChat features? 👀", delay:0    },
-  { from:"me",   text:"yeah omg the AI reply drafts are insane",           delay:2000 },
+  { from:"me",   text:"yeah omg the real-time delivery is insane",         delay:2000 },
   { from:"them", text:"and it's actually fast this time",                   delay:4200 },
   { from:"me",   text:"no more lag 🙏 finally",                             delay:6100 },
   { from:"them", text:"this is replacing everything lol",                   delay:8300 },
 ];
 
 const STATS = [
-  { value:"50K+",   label:"Teams worldwide"  },
-  { value:"<50ms",  label:"Message delivery" },
-  { value:"99.9%",  label:"Uptime SLA"       },
-  { value:"256-bit",label:"Encryption"       },
+  { value:"100%",   label:"Free to use"       },
+  { value:"<100ms", label:"Message delivery"  },
+  { value:"E2EE",   label:"Encrypted by default" },
+  { value:"∞",      label:"Message history"   },
 ];
 
 /* ─────────────────────────────────────────────
@@ -61,7 +65,6 @@ function useThreeScene(mountRef) {
     const rl = new THREE.PointLight(0x7b2fff, 2.5, 16); rl.position.set(0,3,-3); scene.add(rl);
     const bl = new THREE.PointLight(0x00f5a0, 0.8, 10); bl.position.set(0,-4,2); scene.add(bl);
 
-    // Phone
     const phoneG = new THREE.Group();
     const bM = new THREE.MeshPhysicalMaterial({ color:0x0a0e14, metalness:0.6, roughness:0.1, transparent:true, opacity:0.92 });
     phoneG.add(new THREE.Mesh(new THREE.BoxGeometry(1.5,3.0,0.14), bM));
@@ -72,7 +75,6 @@ function useThreeScene(mountRef) {
     phoneG.position.set(-2.7,-1.8,0); phoneG.rotation.y=0.32; phoneG.rotation.x=-0.06;
     scene.add(phoneG);
 
-    // Desktop
     const deskG = new THREE.Group();
     const dM = new THREE.MeshPhysicalMaterial({ color:0x0a0e14, metalness:0.65, roughness:0.12, transparent:true, opacity:0.92 });
     deskG.add(new THREE.Mesh(new THREE.BoxGeometry(5.6,3.6,0.13), dM));
@@ -83,7 +85,6 @@ function useThreeScene(mountRef) {
     deskG.position.set(1.5,-1.6,-0.6); deskG.rotation.y=-0.2;
     scene.add(deskG);
 
-    // Particles
     const N=160; const pPos=new Float32Array(N*3); const pVel=[];
     for(let i=0;i<N;i++){
       pPos[i*3]=(Math.random()-.5)*22; pPos[i*3+1]=(Math.random()-.5)*13; pPos[i*3+2]=(Math.random()-.5)*10;
@@ -93,7 +94,6 @@ function useThreeScene(mountRef) {
     const pts=new THREE.Points(pGeo, new THREE.PointsMaterial({ color:0x00f5a0, size:0.055, transparent:true, opacity:0.45, sizeAttenuation:true }));
     scene.add(pts);
 
-    // Trails
     const trails=Array.from({length:8},(_,t)=>{
       const s=new THREE.Vector3(-2.3,(Math.random()-.5)*2.5,0.1);
       const e=new THREE.Vector3(0.7,(Math.random()-.5)*1.8,-0.4);
@@ -104,11 +104,9 @@ function useThreeScene(mountRef) {
       scene.add(line); return { line, mat, offset:t*1.2, speed:.6+Math.random()*.5 };
     });
 
-    // Grid
     const grid=new THREE.GridHelper(32,32,0x00f5a0,0x0d2020);
     grid.material.transparent=true; grid.material.opacity=0.09; grid.position.y=-4.2; scene.add(grid);
 
-    // Ring
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.6,.015,8,64), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:.35 }));
     ring.position.set(-.65,-1.7,0); ring.rotation.x=Math.PI/2; scene.add(ring);
 
@@ -150,7 +148,7 @@ function useThreeScene(mountRef) {
 }
 
 /* ─────────────────────────────────────────────
-   CHAT OVERLAYS
+   OVERLAYS
 ───────────────────────────────────────────── */
 const PhoneOverlay=()=>{
   const [msgs,setMsgs]=useState([]);
@@ -199,17 +197,17 @@ const DesktopOverlay=()=>{
     <div style={{position:"absolute",inset:0,display:"flex",fontFamily:"'DM Sans',sans-serif",overflow:"hidden"}}>
       <div style={{width:90,background:"rgba(255,255,255,0.02)",borderRight:"1px solid rgba(255,255,255,0.05)",padding:"9px 6px",display:"flex",flexDirection:"column",gap:5}}>
         <div style={{fontSize:9,fontWeight:800,fontFamily:"'Syne',sans-serif",background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:5}}>StoneChat</div>
-        {["Aria C.","Marcus L.","Priya N.","Dev Team"].map((n,i)=>(
+        {["Tunde A.","Chisom O.","David N.","Friends"].map((n,i)=>(
           <div key={n} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 5px",borderRadius:5,background:i===0?"rgba(0,245,160,0.08)":"transparent",borderLeft:i===0?"2px solid #00f5a0":"2px solid transparent"}}>
-            <div style={{width:15,height:15,borderRadius:"50%",flexShrink:0,background:["#e91e8c","#9c27b0","#2196f3","#ff9800"][i]}}/>
+            <div style={{width:15,height:15,borderRadius:"50%",flexShrink:0,background:["#00b87a","#7b2fff","#00d9f5","#ff9800"][i]}}/>
             <span style={{fontSize:7,color:i===0?"#fff":"rgba(255,255,255,0.35)",whiteSpace:"nowrap"}}>{n}</span>
           </div>
         ))}
       </div>
       <div style={{flex:1,display:"flex",flexDirection:"column",padding:"7px 9px"}}>
         <div style={{display:"flex",alignItems:"center",gap:6,paddingBottom:5,marginBottom:6,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-          <div style={{width:16,height:16,borderRadius:"50%",background:"#e91e8c"}}/>
-          <span style={{color:"#fff",fontSize:8.5,fontWeight:600}}>Aria Chen</span>
+          <div style={{width:16,height:16,borderRadius:"50%",background:"#00b87a"}}/>
+          <span style={{color:"#fff",fontSize:8.5,fontWeight:600}}>Tunde A.</span>
           <motion.div animate={{opacity:[1,.3,1]}} transition={{duration:1.8,repeat:Infinity}} style={{width:5,height:5,borderRadius:"50%",background:"#00f5a0",marginLeft:2}}/>
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,justifyContent:"flex-end"}}>
@@ -235,29 +233,23 @@ const DesktopOverlay=()=>{
   );
 };
 
-/* ─────────────────────────────────────────────
-   HERO 3D — full viewport
-───────────────────────────────────────────── */
 const Hero3D=()=>{
   const mountRef=useRef(null);
   useThreeScene(mountRef);
   return(
     <div style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
       <div ref={mountRef} style={{position:"absolute",inset:0}}/>
-      {/* Phone screen */}
       <div style={{position:"absolute",left:"19.2%",top:"13%",width:"9.8%",height:"57%",overflow:"hidden",borderRadius:"5px",pointerEvents:"none",zIndex:5}}>
         <PhoneOverlay/>
       </div>
-      {/* Desktop screen */}
       <div style={{position:"absolute",left:"40.2%",top:"9.5%",width:"33.5%",height:"47.5%",overflow:"hidden",borderRadius:"3px",pointerEvents:"none",zIndex:5}}>
         <DesktopOverlay/>
       </div>
-      {/* Feature badges */}
       {[
         {icon:"🔒",label:"E2E Encrypted", style:{bottom:"22%",left:"3%"},  delay:1   },
-        {icon:"⚡",label:"<50ms",         style:{top:"14%",  left:"1%"},   delay:3.5 },
-        {icon:"🤖",label:"AI Co-Pilot",   style:{top:"12%",  right:"2%"},  delay:6.5 },
-        {icon:"🗂️",label:"File Vaults",   style:{bottom:"20%",right:"2%"}, delay:9.5 },
+        {icon:"⚡",label:"Real-time",      style:{top:"14%",  left:"1%"},   delay:3.5 },
+        {icon:"🤝",label:"Friend System",  style:{top:"12%",  right:"2%"},  delay:6.5 },
+        {icon:"🔔",label:"Smart Alerts",   style:{bottom:"20%",right:"2%"}, delay:9.5 },
       ].map(({icon,label,style,delay})=>(
         <motion.div key={label} initial={{opacity:0,scale:.75,y:12}} animate={{opacity:[0,1,1,1,0],scale:[.75,1,1,1,.88],y:[12,0,0,-2,-8]}} transition={{duration:4,delay,repeat:Infinity,repeatDelay:10,ease:[.16,1,.3,1]}} style={{position:"absolute",display:"flex",alignItems:"center",gap:8,background:"rgba(7,10,15,0.86)",border:"1px solid rgba(0,245,160,0.2)",borderRadius:30,padding:"7px 14px",backdropFilter:"blur(18px)",boxShadow:"0 8px 32px rgba(0,0,0,0.55)",fontFamily:"'DM Sans',sans-serif",pointerEvents:"none",zIndex:20,...style}}>
           <span style={{fontSize:15}}>{icon}</span>
@@ -269,7 +261,7 @@ const Hero3D=()=>{
 };
 
 /* ─────────────────────────────────────────────
-   FEATURE CARD
+   SHARED COMPONENTS
 ───────────────────────────────────────────── */
 const FeatureCard=({icon,title,desc,accent,index})=>{
   const [hov,setHov]=useState(false);
@@ -284,9 +276,6 @@ const FeatureCard=({icon,title,desc,accent,index})=>{
   );
 };
 
-/* ─────────────────────────────────────────────
-   TESTIMONIAL CARD
-───────────────────────────────────────────── */
 const TestimonialCard=({name,role,text,avatar,color,index})=>(
   <motion.div initial={{opacity:0,y:30}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.5,delay:index*.1}} whileHover={{y:-4}} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"28px 26px",position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:16,right:20,fontFamily:"Georgia,serif",fontSize:72,lineHeight:1,color:"rgba(255,255,255,0.04)",fontWeight:900,pointerEvents:"none"}}>"</div>
@@ -301,9 +290,6 @@ const TestimonialCard=({name,role,text,avatar,color,index})=>(
   </motion.div>
 );
 
-/* ─────────────────────────────────────────────
-   STAT CARD
-───────────────────────────────────────────── */
 const StatCard=({value,label,index})=>(
   <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.5,delay:index*.1}} style={{textAlign:"center"}}>
     <div style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(28px,4vw,44px)",fontWeight:800,background:"linear-gradient(135deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:"-1px"}}>{value}</div>
@@ -311,9 +297,6 @@ const StatCard=({value,label,index})=>(
   </motion.div>
 );
 
-/* ─────────────────────────────────────────────
-   SHIMMER BUTTON
-───────────────────────────────────────────── */
 const ShimmerBtn=({children,onClick,style={}})=>(
   <motion.button onClick={onClick} whileHover={{scale:1.05,boxShadow:"0 0 44px rgba(0,245,160,0.45)"}} whileTap={{scale:.97}} style={{background:"linear-gradient(135deg,#00f5a0,#00d9f5)",color:"#000",border:"none",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",position:"relative",overflow:"hidden",boxShadow:"0 4px 20px rgba(0,245,160,0.25)",...style}}>
     <motion.div animate={{x:["-120%","160%"]}} transition={{duration:2.2,repeat:Infinity,ease:"linear",repeatDelay:1.5}} style={{position:"absolute",inset:0,width:"45%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)",pointerEvents:"none"}}/>
@@ -328,8 +311,6 @@ const ChatLanding=()=>{
   const navigate=useNavigate();
   const {scrollY}=useScroll();
   const navBg=useTransform(scrollY,[0,80],["rgba(7,10,15,0)","rgba(7,10,15,0.94)"]);
-
-  // Cursor glow
   const cx=useMotionValue(-200),cy=useMotionValue(-200);
   const sx=useSpring(cx,{stiffness:90,damping:22}),sy=useSpring(cy,{stiffness:90,damping:22});
   useEffect(()=>{
@@ -350,174 +331,101 @@ const ChatLanding=()=>{
         ::selection{background:rgba(0,245,160,0.22);color:#fff;}
       `}</style>
 
-      {/* Cursor glow */}
       <motion.div style={{position:"fixed",left:sx,top:sy,width:400,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(0,245,160,0.05) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
-      {/* Ambient orbs */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
         {[{x:"8%",y:"12%",s:500,c:"#00f5a0",d:0},{x:"62%",y:"4%",s:400,c:"#00d9f5",d:1.5},{x:"78%",y:"58%",s:350,c:"#7b2fff",d:3},{x:"18%",y:"68%",s:300,c:"#00f5a0",d:2}].map((o,i)=>(
           <motion.div key={i} animate={{y:[0,-28,0],scale:[1,1.08,1]}} transition={{duration:7+o.d,repeat:Infinity,ease:"easeInOut",delay:o.d}} style={{position:"absolute",left:o.x,top:o.y,width:o.s,height:o.s,borderRadius:"50%",background:o.c,filter:"blur(100px)",opacity:.09,pointerEvents:"none"}}/>
         ))}
       </div>
 
-      {/* Fine grid */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,backgroundImage:"linear-gradient(rgba(0,245,160,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,160,0.022) 1px,transparent 1px)",backgroundSize:"52px 52px",maskImage:"radial-gradient(ellipse at 50% 30%,black 20%,transparent 70%)"}}/>
 
-      {/* ── NAV ── */}
+      {/* NAV */}
       <motion.nav style={{position:"fixed",top:0,left:0,right:0,zIndex:100,background:navBg,backdropFilter:"blur(24px)",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 28px",height:66,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <motion.div initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{duration:.5}} style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:"-0.5px"}}>
+          <motion.div initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{duration:.5}} style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:"-0.5px",cursor:"pointer"}} onClick={()=>navigate("/")}>
             StoneChat
           </motion.div>
           <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:.2}} style={{display:"flex",gap:32,alignItems:"center"}}>
             {NAV_LINKS.map(link=>(
-              <motion.a key={link} href="#" whileHover={{color:"#fff",y:-1}} style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,fontWeight:500,transition:"color 0.2s"}}>{link}</motion.a>
+              <motion.a key={link.label} href={link.href} whileHover={{color:"#fff",y:-1}} onClick={e=>{if(link.href.startsWith("/")){e.preventDefault();navigate(link.href);}}} style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,fontWeight:500,transition:"color 0.2s"}}>{link.label}</motion.a>
             ))}
             <ShimmerBtn style={{padding:"10px 24px",fontSize:14}} onClick={()=>navigate("/auth/signup")}>Get Started</ShimmerBtn>
           </motion.div>
         </div>
       </motion.nav>
 
-      {/* ── HERO: full-viewport 3D immersive ── */}
+      {/* HERO */}
       <section style={{position:"relative",zIndex:1,height:"100vh",minHeight:700,overflow:"hidden"}}>
-
-        {/* ── Three.js fills entire hero ── */}
-        <div style={{position:"absolute",inset:0,zIndex:0}}>
-          <Hero3D/>
-        </div>
-
-        {/* ── deep radial vignette so text pops ── */}
+        <div style={{position:"absolute",inset:0,zIndex:0}}><Hero3D/></div>
         <div style={{position:"absolute",inset:0,zIndex:2,background:"radial-gradient(ellipse 80% 70% at 50% 50%, transparent 0%, rgba(7,10,15,0.45) 60%, rgba(7,10,15,0.85) 100%)",pointerEvents:"none"}}/>
-
-        {/* ── scan-line texture ── */}
         <div style={{position:"absolute",inset:0,zIndex:2,backgroundImage:"repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px)",pointerEvents:"none"}}/>
 
-        {/* ── centered text overlay ── */}
         <div style={{position:"absolute",inset:0,zIndex:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 28px 0",pointerEvents:"none"}}>
-
-          {/* Badge */}
-          <motion.div
-            initial={{opacity:0,y:-16,scale:.9}}
-            animate={{opacity:1,y:0,scale:1}}
-            transition={{duration:.7,ease:[.16,1,.3,1]}}
-            style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(0,245,160,0.07)",border:"1px solid rgba(0,245,160,0.25)",borderRadius:50,padding:"7px 20px",fontSize:13,color:"#00f5a0",fontWeight:500,marginBottom:32,backdropFilter:"blur(12px)",pointerEvents:"auto"}}
-          >
+          <motion.div initial={{opacity:0,y:-16,scale:.9}} animate={{opacity:1,y:0,scale:1}} transition={{duration:.7,ease:[.16,1,.3,1]}} style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(0,245,160,0.07)",border:"1px solid rgba(0,245,160,0.25)",borderRadius:50,padding:"7px 20px",fontSize:13,color:"#00f5a0",fontWeight:500,marginBottom:32,backdropFilter:"blur(12px)",pointerEvents:"auto"}}>
             <motion.span animate={{scale:[1,1.5,1],opacity:[1,.4,1]}} transition={{duration:1.4,repeat:Infinity}} style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:"#00f5a0",flexShrink:0}}/>
-            v2.0 is live — faster, smarter, better
+            Now available — free for everyone
           </motion.div>
 
-          {/* Giant headline — each letter cascades in */}
           <div style={{textAlign:"center",marginBottom:28,pointerEvents:"none"}}>
-            {[
-              {text:"Talk faster.", grad:false},
-              {text:"Think together.", grad:true},
-            ].map(({text,grad},lineIdx)=>(
+            {[{text:"Connect faster.",grad:false},{text:"Chat smarter.",grad:true}].map(({text,grad},lineIdx)=>(
               <div key={text} style={{overflow:"hidden",lineHeight:1,marginBottom:4}}>
-                <motion.div
-                  initial={{y:"110%",opacity:0}}
-                  animate={{y:"0%",opacity:1}}
-                  transition={{duration:.9,delay:.15+lineIdx*.18,ease:[.16,1,.3,1]}}
-                >
-                  <span style={{
-                    fontFamily:"'Syne',sans-serif",
-                    fontSize:"clamp(58px,9vw,116px)",
-                    fontWeight:800,
-                    letterSpacing:"-4px",
-                    lineHeight:1,
-                    display:"block",
-                    ...(grad ? {
-                      background:"linear-gradient(90deg,#00f5a0,#00d9f5)",
-                      WebkitBackgroundClip:"text",
-                      WebkitTextFillColor:"transparent",
-                    } : {color:"#fff"}),
-                    textShadow:grad?"none":"0 2px 40px rgba(0,0,0,0.8)",
-                  }}>{text}</span>
+                <motion.div initial={{y:"110%",opacity:0}} animate={{y:"0%",opacity:1}} transition={{duration:.9,delay:.15+lineIdx*.18,ease:[.16,1,.3,1]}}>
+                  <span style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(58px,9vw,116px)",fontWeight:800,letterSpacing:"-4px",lineHeight:1,display:"block",...(grad?{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}:{color:"#fff"}),textShadow:grad?"none":"0 2px 40px rgba(0,0,0,0.8)"}}>{text}</span>
                 </motion.div>
               </div>
             ))}
           </div>
 
-          {/* Sub copy */}
-          <motion.p
-            initial={{opacity:0,y:20}}
-            animate={{opacity:1,y:0}}
-            transition={{duration:.7,delay:.55}}
-            style={{textAlign:"center",color:"rgba(255,255,255,0.5)",fontSize:"clamp(15px,1.7vw,19px)",maxWidth:520,lineHeight:1.8,marginBottom:40,textShadow:"0 1px 20px rgba(0,0,0,0.8)",pointerEvents:"none"}}
-          >
-            The chat platform built for teams that move at the speed of thought. Encrypted, instant, and intelligently designed.
+          <motion.p initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:.7,delay:.55}} style={{textAlign:"center",color:"rgba(255,255,255,0.5)",fontSize:"clamp(15px,1.7vw,19px)",maxWidth:520,lineHeight:1.8,marginBottom:40,textShadow:"0 1px 20px rgba(0,0,0,0.8)",pointerEvents:"none"}}>
+            Real-time messaging with end-to-end encryption. Find friends, start conversations, and stay connected — no noise, just chat.
           </motion.p>
 
-          {/* CTAs */}
-          <motion.div
-            initial={{opacity:0,y:20,scale:.95}}
-            animate={{opacity:1,y:0,scale:1}}
-            transition={{duration:.7,delay:.72,ease:[.16,1,.3,1]}}
-            style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"center",marginBottom:56,pointerEvents:"auto"}}
-          >
-            <ShimmerBtn style={{boxShadow:"0 8px 40px rgba(0,245,160,0.35),0 2px 8px rgba(0,0,0,0.6)"}}>
-              Start for free →
+          <motion.div initial={{opacity:0,y:20,scale:.95}} animate={{opacity:1,y:0,scale:1}} transition={{duration:.7,delay:.72,ease:[.16,1,.3,1]}} style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"center",marginBottom:56,pointerEvents:"auto"}}>
+            <ShimmerBtn onClick={()=>navigate("/auth/signup")} style={{boxShadow:"0 8px 40px rgba(0,245,160,0.35),0 2px 8px rgba(0,0,0,0.6)"}}>
+              Create account — it's free
             </ShimmerBtn>
-            <motion.button
-              whileHover={{scale:1.05,background:"rgba(255,255,255,0.1)",borderColor:"rgba(255,255,255,0.3)"}}
-              whileTap={{scale:.97}}
-              style={{background:"rgba(7,10,15,0.5)",color:"#fff",border:"1px solid rgba(255,255,255,0.18)",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:500,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",backdropFilter:"blur(14px)",transition:"all 0.2s",boxShadow:"0 2px 20px rgba(0,0,0,0.5)"}}
-            >
-              Watch demo
+            <motion.button onClick={()=>navigate("/auth/login")} whileHover={{scale:1.05,background:"rgba(255,255,255,0.1)",borderColor:"rgba(255,255,255,0.3)"}} whileTap={{scale:.97}} style={{background:"rgba(7,10,15,0.5)",color:"#fff",border:"1px solid rgba(255,255,255,0.18)",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:500,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",backdropFilter:"blur(14px)",transition:"all 0.2s",boxShadow:"0 2px 20px rgba(0,0,0,0.5)"}}>
+              Sign in
             </motion.button>
           </motion.div>
 
-          {/* Social proof */}
-          <motion.div
-            initial={{opacity:0}}
-            animate={{opacity:1}}
-            transition={{delay:1.0}}
-            style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",justifyContent:"center",pointerEvents:"auto"}}
-          >
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.0}} style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",justifyContent:"center",pointerEvents:"auto"}}>
             <div style={{display:"flex"}}>
-              {["#e91e8c","#9c27b0","#2196f3","#4caf50","#ff9800"].map((c,i)=>(
+              {["#00b87a","#7b2fff","#00d9f5","#ff9800","#e91e8c"].map((c,i)=>(
                 <div key={c} style={{width:30,height:30,borderRadius:"50%",background:c,border:"2px solid rgba(7,10,15,0.8)",marginLeft:i===0?0:-9,zIndex:5-i,position:"relative",boxShadow:"0 2px 8px rgba(0,0,0,0.5)"}}/>
               ))}
             </div>
             <span style={{color:"rgba(255,255,255,0.5)",fontSize:13,textShadow:"0 1px 12px rgba(0,0,0,0.8)"}}>
-              Trusted by <strong style={{color:"#fff"}}>50,000+</strong> teams worldwide
+              Join the first users — <strong style={{color:"#00f5a0"}}>sign up today</strong>
             </span>
           </motion.div>
         </div>
 
-        {/* Scroll hint */}
-        <motion.div
-          initial={{opacity:0}}
-          animate={{opacity:1}}
-          transition={{delay:1.6}}
-          style={{position:"absolute",bottom:32,left:"50%",transform:"translateX(-50%)",zIndex:10,display:"flex",flexDirection:"column",alignItems:"center",gap:6,pointerEvents:"none"}}
-        >
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.6}} style={{position:"absolute",bottom:32,left:"50%",transform:"translateX(-50%)",zIndex:10,display:"flex",flexDirection:"column",alignItems:"center",gap:6,pointerEvents:"none"}}>
           <span style={{color:"rgba(255,255,255,0.25)",fontSize:11,letterSpacing:2,textTransform:"uppercase"}}>Scroll</span>
-          <motion.div
-            animate={{y:[0,8,0],opacity:[0.3,0.8,0.3]}}
-            transition={{duration:1.6,repeat:Infinity,ease:"easeInOut"}}
-            style={{width:1,height:36,background:"linear-gradient(to bottom,rgba(0,245,160,0.6),transparent)"}}
-          />
+          <motion.div animate={{y:[0,8,0],opacity:[0.3,0.8,0.3]}} transition={{duration:1.6,repeat:Infinity,ease:"easeInOut"}} style={{width:1,height:36,background:"linear-gradient(to bottom,rgba(0,245,160,0.6),transparent)"}}/>
         </motion.div>
 
-        {/* Bottom gradient bleed into next section */}
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:180,zIndex:3,background:"linear-gradient(transparent,#070a0f)",pointerEvents:"none"}}/>
       </section>
 
-      {/* ── STATS BAR ── */}
+      {/* STATS */}
       <section style={{position:"relative",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)",borderBottom:"1px solid rgba(255,255,255,0.05)",background:"rgba(255,255,255,0.02)"}}>
         <div style={{maxWidth:1000,margin:"0 auto",padding:"44px 28px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:32}}>
           {STATS.map((s,i)=><StatCard key={s.label} {...s} index={i}/>)}
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
+      {/* FEATURES */}
       <section style={{position:"relative",zIndex:1,padding:"120px 28px"}}>
         <div style={{maxWidth:1200,margin:"0 auto"}}>
           <motion.div initial={{opacity:0,y:30}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.6}} style={{textAlign:"center",marginBottom:72}}>
-            <div style={{display:"inline-block",color:"#00f5a0",fontSize:12,fontWeight:600,letterSpacing:3,textTransform:"uppercase",marginBottom:18}}>Everything you need</div>
+            <div style={{display:"inline-block",color:"#00f5a0",fontSize:12,fontWeight:600,letterSpacing:3,textTransform:"uppercase",marginBottom:18}}>What you get</div>
             <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(36px,5vw,62px)",fontWeight:800,letterSpacing:"-2px",lineHeight:1.1}}>
-              Built for the way<br/>
-              <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>real teams work.</span>
+              Everything you need<br/>
+              <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>to stay in touch.</span>
             </h2>
           </motion.div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(290px,1fr))",gap:20}}>
@@ -526,13 +434,14 @@ const ChatLanding=()=>{
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
+      {/* TESTIMONIALS */}
       <section style={{position:"relative",zIndex:1,padding:"80px 28px 120px"}}>
         <div style={{maxWidth:1200,margin:"0 auto"}}>
           <motion.div initial={{opacity:0,y:30}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.6}} style={{textAlign:"center",marginBottom:64}}>
             <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(32px,4.5vw,56px)",fontWeight:800,letterSpacing:"-2px"}}>
-              People <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>love</span> StoneChat.
+              Early users <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>love</span> it.
             </h2>
+            <p style={{color:"rgba(255,255,255,0.35)",fontSize:15,marginTop:12}}>Here's what our first users are saying.</p>
           </motion.div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(290px,1fr))",gap:20}}>
             {TESTIMONIALS.map((t,i)=><TestimonialCard key={t.name} {...t} index={i}/>)}
@@ -540,32 +449,32 @@ const ChatLanding=()=>{
         </div>
       </section>
 
-      {/* ── CTA ── */}
+      {/* CTA */}
       <section style={{position:"relative",zIndex:1,padding:"0 28px 140px"}}>
         <motion.div initial={{opacity:0,scale:.94}} whileInView={{opacity:1,scale:1}} viewport={{once:true}} transition={{duration:.7}} style={{maxWidth:840,margin:"0 auto",background:"rgba(0,245,160,0.04)",border:"1px solid rgba(0,245,160,0.14)",borderRadius:36,padding:"80px 44px",textAlign:"center",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",top:-60,left:-60,width:200,height:200,borderRadius:"50%",background:"#00f5a0",filter:"blur(80px)",opacity:.08,pointerEvents:"none"}}/>
           <div style={{position:"absolute",bottom:-60,right:-60,width:200,height:200,borderRadius:"50%",background:"#00d9f5",filter:"blur(80px)",opacity:.08,pointerEvents:"none"}}/>
           <motion.div animate={{x:["-100%","100%"]}} transition={{duration:3.5,repeat:Infinity,ease:"linear",repeatDelay:2.5}} style={{position:"absolute",top:0,left:0,width:"40%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(0,245,160,0.05),transparent)",pointerEvents:"none"}}/>
           <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(36px,5vw,62px)",fontWeight:800,letterSpacing:"-2px",marginBottom:20}}>
-            Start chatting.<br/>
-            <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Free forever.</span>
+            Ready to try it?<br/>
+            <span style={{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>It's completely free.</span>
           </h2>
-          <p style={{color:"rgba(255,255,255,0.45)",fontSize:18,marginBottom:44,lineHeight:1.75}}>No credit card required. Set up your team in under 60 seconds.</p>
-          <ShimmerBtn style={{padding:"18px 52px",fontSize:18,boxShadow:"0 8px 32px rgba(0,245,160,0.25)"}}>Create your workspace →</ShimmerBtn>
+          <p style={{color:"rgba(255,255,255,0.45)",fontSize:18,marginBottom:44,lineHeight:1.75}}>No credit card. No subscription. Just sign up and start chatting.</p>
+          <ShimmerBtn onClick={()=>navigate("/auth/signup")} style={{padding:"18px 52px",fontSize:18,boxShadow:"0 8px 32px rgba(0,245,160,0.25)"}}>Create your account →</ShimmerBtn>
         </motion.div>
       </section>
 
-      {/* ── FOOTER ── */}
+      {/* FOOTER */}
       <footer style={{position:"relative",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)",padding:"48px 28px 36px"}}>
         <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontSize:24,fontWeight:800,background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>StoneChat</div>
           <div style={{display:"flex",gap:28}}>
             {NAV_LINKS.map(link=>(
-              <motion.a key={link} href="#" whileHover={{color:"rgba(255,255,255,0.8)"}} style={{color:"rgba(255,255,255,0.3)",textDecoration:"none",fontSize:13}}>{link}</motion.a>
+              <motion.a key={link.label} href={link.href} onClick={e=>{if(link.href.startsWith("/")){e.preventDefault();navigate(link.href);}}} whileHover={{color:"rgba(255,255,255,0.8)"}} style={{color:"rgba(255,255,255,0.3)",textDecoration:"none",fontSize:13}}>{link.label}</motion.a>
             ))}
           </div>
           <div style={{height:1,width:"100%",background:"rgba(255,255,255,0.05)"}}/>
-          <div style={{color:"rgba(255,255,255,0.2)",fontSize:12}}>© 2026 StoneChat Inc. Built with ♥ for fast teams.</div>
+          <div style={{color:"rgba(255,255,255,0.2)",fontSize:12}}>© 2025 StoneChat. Built to keep people connected.</div>
         </div>
       </footer>
     </div>

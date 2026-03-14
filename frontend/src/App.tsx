@@ -11,6 +11,8 @@ import ChatLanding from './pages/ChatLanding'
 import NotFound from './pages/NotFound'
 import LoadingScreen from './components/LoadingScreen'
 import { NotificationProvider } from './components/NotificationContext'
+import AboutPage from './pages/AboutPage'
+import FeaturesPage from './pages/FeaturesPage'
 
 
 import './App.css'
@@ -42,6 +44,16 @@ const App = () => {
           <Route path="/landingpage" element={
             <PublicRoute>
               <LandingPage />
+            </PublicRoute>
+          } />
+            <Route path="/features" element={
+            <PublicRoute>
+              <FeaturesPage />
+            </PublicRoute>
+          } />
+            <Route path="/about" element={
+            <PublicRoute>
+              <AboutPage />
             </PublicRoute>
           } />
 
