@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const User = require("../Model/UserModel");
+const User    = require("../Model/UserModel");
 const Message = require("../Model/MessageModel");
 
 module.exports = (server) => {
@@ -10,25 +10,36 @@ module.exports = (server) => {
   io.on("connection", (socket) => {
     console.log("🟢 Connected:", socket.id);
 
-    // ── REGISTER USER ──
+    // ── REGISTER USER ──────────────────────────────────────────────────────────
     socket.on("register_user", async (userId) => {
       if (!userId) return;
       await User.findByIdAndUpdate(userId, { socketId: socket.id });
       console.log("✅ User registered:", userId);
     });
 
-    // ── SEND MESSAGE ──
-    socket.on("send_message", async ({ senderId, receiverId, text, messageId }) => {
-      if (!senderId || !receiverId || !text || !messageId) return;
+    // ── SEND MESSAGE ───────────────────────────────────────────────────────────
+    // Frontend emits:
+    //   { senderId, receiverId, text, messageId, attachments: [] }
+    // attachments shape: [{ type, url, name, sizeLabel }]
+    socket.on("send_message", async ({ senderId, receiverId, text, messageId, attachments = [] }) => {
+      if (!senderId || !receiverId) return;
+      if (!text && attachments.length === 0) return; // nothing to send
 
-      const message = await Message.create({ senderId, receiverId, text });
+      // Save to DB — include attachments so they survive page refresh
+      const message = await Message.create({
+        senderId,
+        receiverId,
+        text: text || "",
+        attachments,            // ← persisted
+      });
 
       const payload = {
-        from: senderId,
-        to: receiverId,
-        text,
+        from:        senderId,
+        to:          receiverId,
+        text:        text || "",
         messageId,
-        createdAt: message.createdAt,
+        attachments,            // ← forwarded to receiver
+        createdAt:   message.createdAt,
       };
 
       // Emit to receiver only
@@ -38,31 +49,26 @@ module.exports = (server) => {
       }
     });
 
-    // ── SEND FRIEND REQUEST ──
-    // Frontend emits: socket.emit("send_friend_request", { fromId, toId })
+    // ── SEND FRIEND REQUEST ────────────────────────────────────────────────────
     socket.on("send_friend_request", async ({ fromId, toId }) => {
       if (!fromId || !toId) return;
 
-      const sender = await User.findById(fromId).select("username profilePicture");
+      const sender   = await User.findById(fromId).select("username profilePicture");
       if (!sender) return;
 
       const receiver = await User.findById(toId);
       if (!receiver?.socketId) return;
 
-      // Notify the receiver in real-time
       io.to(receiver.socketId).emit("friend_request_received", {
         fromId,
-        fromName: sender.username,
+        fromName:   sender.username,
         fromAvatar: sender.profilePicture || null,
       });
 
       console.log(`📨 Friend request: ${sender.username} → ${toId}`);
     });
 
-    // ── ACCEPT FRIEND REQUEST ──
-    // Frontend emits: socket.emit("accept_friend_request", { fromId, toId })
-    // fromId = the person who originally sent the request
-    // toId   = the person who just accepted it
+    // ── ACCEPT FRIEND REQUEST ──────────────────────────────────────────────────
     socket.on("accept_friend_request", async ({ fromId, toId }) => {
       if (!fromId || !toId) return;
 
@@ -72,17 +78,16 @@ module.exports = (server) => {
       const originalSender = await User.findById(fromId);
       if (!originalSender?.socketId) return;
 
-      // Notify original sender that their request was accepted
       io.to(originalSender.socketId).emit("friend_request_accepted", {
-        byId: toId,
-        byName: accepter.username,
+        byId:     toId,
+        byName:   accepter.username,
         byAvatar: accepter.profilePicture || null,
       });
 
       console.log(`✅ Friend request accepted: ${accepter.username} accepted ${fromId}'s request`);
     });
 
-    // ── DISCONNECT ──
+    // ── DISCONNECT ─────────────────────────────────────────────────────────────
     socket.on("disconnect", async () => {
       await User.findOneAndUpdate({ socketId: socket.id }, { socketId: null });
       console.log("🔴 Disconnected:", socket.id);

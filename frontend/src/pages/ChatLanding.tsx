@@ -23,7 +23,7 @@ const FEATURES = [
 
 const TESTIMONIALS = [
   { name:"Abdul Satar",  role:"Software Engineer",          text:"I've tried a lot of chat apps. StoneChat is the first one that felt genuinely fast from day one. The UI is clean and the notifications actually work.", avatar:"AS", color:"#00b87a" },
-  { name:"Amosu Oyindamola",   role:"Socail Media Manager",         text:"The friend request system is smooth and the message delivery is instant. Exactly what I needed to keep in touch with my team.",                          avatar:"AO", color:"#7b2fff" },
+  { name:"Amosu Oyindamola",   role:"Social Media Manager",         text:"The friend request system is smooth and the message delivery is instant. Exactly what I needed to keep in touch with my team.",                          avatar:"AO", color:"#7b2fff" },
   { name:"Ogunnaike Azeezat",role:"Artist",            text:"Finally switched from WhatsApp for my work chats. StoneChat keeps things professional and the interface doesn't get in the way.",                         avatar:"OA", color:"#00d9f5" },
 ];
 
