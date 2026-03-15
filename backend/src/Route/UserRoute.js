@@ -14,6 +14,7 @@ const {
   SignUpUser,
   LoginUser,
   UploadProfilePic,
+  RefreshToken,
   getAllUsers,
   ForgotPassword,  // sends 4-digit OTP
   VerifyOTP,       // verifies OTP, returns resetToken
@@ -27,6 +28,7 @@ const {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 userRouter.post("/signup",  SignUpUser);
 userRouter.post("/login",   LoginUser);
+userRouter.post("/refresh-token", verifyToken, RefreshToken);
 
 // ── Password reset (OTP flow — 3 steps) ──────────────────────────────────────
 userRouter.post("/forgot-password", ForgotPassword);  // step 1: sends OTP email
