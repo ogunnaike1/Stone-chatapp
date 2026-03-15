@@ -15,13 +15,14 @@ const seedAdmin = async (req, res) => {
     const existing = await Admin.findOne({ email: "admin@stonechat.com" });
     if (existing) return res.status(200).json({ message: "Admin already exists" });
 
-    const hashed = await bcrypt.hash("Admin@1234", 10);
-    await Admin.create({
-      username: "superadmin",
-      email:    "admin@stonechat.com",
-      password: hashed,
-      role:     "superadmin",
-    });
+    // ✅ your details
+        const hashed = await bcrypt.hash("Us08123579895#", 10);
+        await Admin.create({
+        username: "yourusername",
+        email:    "ogunnaikeusman17@gmail.com",
+        password: hashed,
+        role:     "superadmin",
+        });
 
     res.status(201).json({ message: "Admin seeded. Change password immediately." });
   } catch (err) {
