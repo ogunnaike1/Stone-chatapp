@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import api from "../api/axios";
 
-// ── How long the user can be idle before being logged out ─────────────────────
-const IDLE_TIMEOUT_MS = 10_000; // 10 seconds (change to e.g. 15 * 60_000 for 15 min in prod)
+// ── Idle timeout: log out after 15 minutes of no activity ─────────────────────
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 // ── Events that count as "user is active" ─────────────────────────────────────
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
@@ -34,28 +34,22 @@ const isTokenValid = (): boolean => {
 };
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
   const [valid, setValid] = useState(() => isTokenValid());
 
-  // Timestamp of the last detected user activity
   const lastActivityRef = useRef<number>(Date.now());
-  // Debounce: don't hit /refresh more than once every 5 seconds
   const lastRefreshRef  = useRef<number>(0);
 
   useEffect(() => {
     if (!valid) return;
 
-    // ── 1. Track user activity ───────────────────────────────────────────────
-    const onActivity = () => {
-      lastActivityRef.current = Date.now();
-    };
+    // 1. Track activity
+    const onActivity = () => { lastActivityRef.current = Date.now(); };
     ACTIVITY_EVENTS.forEach(evt => window.addEventListener(evt, onActivity, { passive: true }));
 
-    // ── 2. Refresh token when user is active ─────────────────────────────────
-    // Every 4 seconds, if the user was active recently AND we haven't
-    // refreshed in the last 5 seconds, ask the server for a fresh token.
+    // 2. Refresh token while user is active (every 4s, debounced to max once per 5s)
     const refreshInterval = setInterval(async () => {
-      const idleMs   = Date.now() - lastActivityRef.current;
+      const idleMs    = Date.now() - lastActivityRef.current;
       const sinceLast = Date.now() - lastRefreshRef.current;
 
       if (idleMs < IDLE_TIMEOUT_MS && sinceLast > 5000) {
@@ -66,13 +60,12 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
             lastRefreshRef.current = Date.now();
           }
         } catch {
-          // 401 is handled globally by the axios interceptor
+          // 401 handled globally by axios interceptor
         }
       }
     }, 4000);
 
-    // ── 3. Idle watchdog — checks every second ───────────────────────────────
-    // If the user has been idle for longer than IDLE_TIMEOUT_MS, log them out.
+    // 3. Idle watchdog — checks every 10 seconds (no need to check every second for a 15-min timeout)
     const idleInterval = setInterval(() => {
       const idleMs = Date.now() - lastActivityRef.current;
       if (idleMs >= IDLE_TIMEOUT_MS) {
@@ -81,7 +74,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
         setValid(false);
         navigate("/auth/login", { replace: true });
       }
-    }, 1000);
+    }, 10_000);
 
     return () => {
       ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, onActivity));

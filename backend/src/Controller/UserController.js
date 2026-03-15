@@ -87,7 +87,7 @@ const LoginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid password", status: false });
     }
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d"  });
 
     return res.status(200).json({
       token,
@@ -149,17 +149,15 @@ const UploadProfilePic = async (req, res) => {
 
 const RefreshToken = async (req, res) => {
   try {
-    // req.user is set by verifyToken middleware
     const user = await userModel.findById(req.user.id).select("_id email username profilePicture");
     if (!user) {
       return res.status(404).json({ message: "User not found", status: false });
     }
 
-    // Issue a fresh token with the same expiry window
     const token = jwt.sign(
       { id: user._id, email: user.email },
       JWT_SECRET,
-      { expiresIn: "10s" } // keep in sync with LoginUser — change both together
+      { expiresIn: "7d" } // ← must match LoginUser
     );
 
     return res.status(200).json({ token, status: true });

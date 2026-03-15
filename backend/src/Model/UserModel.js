@@ -9,11 +9,15 @@ const UserSchema = new mongoose.Schema(
     profilePicture: String,
     socketId:       String,
 
-    // ── Password reset (OTP-based) ──────────────────────────────────────────
-    resetOTP:        String, // 4-digit code
-    resetOTPExpires: Date,   // 10-minute expiry
+    // ── Admin-managed ────────────────────────────────────────────────────────
+    status:      { type: String, enum: ["active", "suspended", "banned"], default: "active" },
+    reportCount: { type: Number, default: 0 },
 
-    // ── Friends ─────────────────────────────────────────────────────────────
+    // ── Password reset (OTP-based) ───────────────────────────────────────────
+    resetOTP:        String,
+    resetOTPExpires: Date,
+
+    // ── Friends ──────────────────────────────────────────────────────────────
     friends: [
       { type: mongoose.Schema.Types.ObjectId, ref: "user_collection" },
     ],
@@ -28,5 +32,4 @@ const UserSchema = new mongoose.Schema(
 );
 
 const userModel = mongoose.model("user_collection", UserSchema);
-
 module.exports = userModel;
