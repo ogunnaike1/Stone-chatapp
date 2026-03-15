@@ -15,6 +15,12 @@ type SocketMessage = {
   to: string;
   text: string;
   createdAt: string;
+  attachments?: {           // ← add this
+    type: "image" | "video" | "document";
+    url: string;
+    name: string;
+    sizeLabel?: string;
+  }[];
 };
 
 type FriendRequest = {
@@ -147,6 +153,7 @@ const ChatHome = () => {
         text: msg.text,
         sender: "other",
         time: displayTime,
+        attachments: msg.attachments ?? [],  // ← add this
       };
 
       // Read sender name from the ref — avoids a second setState call
@@ -159,7 +166,7 @@ const ChatHome = () => {
           if (conv.messages.some(m => m.id === msg.messageId)) return conv; // dedupe
           return {
             ...conv,
-            lastMessage: msg.text,
+            lastMessage: msg.text || `📎 ${msg.attachments?.[0]?.name ?? "File"}`,
             time: displayTime,
             rawTime: msg.createdAt,
             messages: [...conv.messages, incoming],

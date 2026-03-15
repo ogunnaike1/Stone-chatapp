@@ -18,19 +18,15 @@ module.exports = (server) => {
     });
 
     // ── SEND MESSAGE ───────────────────────────────────────────────────────────
-    // Frontend emits:
-    //   { senderId, receiverId, text, messageId, attachments: [] }
-    // attachments shape: [{ type, url, name, sizeLabel }]
     socket.on("send_message", async ({ senderId, receiverId, text, messageId, attachments = [] }) => {
       if (!senderId || !receiverId) return;
-      if (!text && attachments.length === 0) return; // nothing to send
+      if (!text && attachments.length === 0) return;
 
-      // Save to DB — include attachments so they survive page refresh
       const message = await Message.create({
         senderId,
         receiverId,
         text: text || "",
-        attachments,            // ← persisted
+        attachments,
       });
 
       const payload = {
@@ -38,14 +34,24 @@ module.exports = (server) => {
         to:          receiverId,
         text:        text || "",
         messageId,
-        attachments,            // ← forwarded to receiver
+        attachments,
         createdAt:   message.createdAt,
       };
 
-      // Emit to receiver only
       const receiver = await User.findById(receiverId);
       if (receiver?.socketId) {
         io.to(receiver.socketId).emit("receive_message", payload);
+      }
+    });
+
+    // ── DELETE MESSAGE FOR EVERYONE ────────────────────────────────────────────
+    // Frontend emits: socket.emit("delete_message_for_everyone", { messageId, receiverId })
+    socket.on("delete_message_for_everyone", async ({ messageId, receiverId }) => {
+      if (!messageId || !receiverId) return;
+
+      const receiver = await User.findById(receiverId);
+      if (receiver?.socketId) {
+        io.to(receiver.socketId).emit("message_deleted_for_everyone", { messageId });
       }
     });
 
@@ -64,8 +70,6 @@ module.exports = (server) => {
         fromName:   sender.username,
         fromAvatar: sender.profilePicture || null,
       });
-
-      console.log(`📨 Friend request: ${sender.username} → ${toId}`);
     });
 
     // ── ACCEPT FRIEND REQUEST ──────────────────────────────────────────────────
@@ -83,8 +87,6 @@ module.exports = (server) => {
         byName:   accepter.username,
         byAvatar: accepter.profilePicture || null,
       });
-
-      console.log(`✅ Friend request accepted: ${accepter.username} accepted ${fromId}'s request`);
     });
 
     // ── DISCONNECT ─────────────────────────────────────────────────────────────

@@ -1,15 +1,14 @@
-const express    = require("express");
-const router     = express.Router();
-const Message    = require("../Model/MessageModel");
+const express     = require("express");
+const router      = express.Router();
+const Message     = require("../Model/MessageModel");
 const verifyToken = require("../middleware/authMiddleware");
-const upload     = require("../utils/MutlerConfig");
-const cloudinary = require("../Utils/Cloudinary");
+const upload      = require("../utils/MutlerConfig");
+const cloudinary  = require("../Utils/Cloudinary");
 const streamifier = require("streamifier");
 
 /* ─────────────────────────────────────────────
    UPLOAD FILE → CLOUDINARY
    POST /messages/upload
-   Body: multipart/form-data  { file, type }
 ───────────────────────────────────────────── */
 router.post("/upload", verifyToken, upload.single("file"), async (req, res) => {
   try {
@@ -18,34 +17,20 @@ router.post("/upload", verifyToken, upload.single("file"), async (req, res) => {
     }
 
     const fileType = req.body.type || "document";
-
-    // Map frontend type to Cloudinary resource_type
     const resourceType =
       fileType === "image" ? "image" :
       fileType === "video" ? "video" :
-      "raw"; // raw = PDFs, docs, zips — stored as-is
+      "raw";
 
-    // Stream buffer directly to Cloudinary — no temp file on disk
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: resourceType,
-          folder: "stonechat_files",
-          use_filename: true,
-          unique_filename: true,
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
+        { resource_type: resourceType, folder: "stonechat_files", use_filename: true, unique_filename: true },
+        (error, result) => { if (error) return reject(error); resolve(result); }
       );
       streamifier.createReadStream(req.file.buffer).pipe(stream);
     });
 
-    return res.status(200).json({
-      url:    uploadResult.secure_url,
-      status: true,
-    });
+    return res.status(200).json({ url: uploadResult.secure_url, status: true });
   } catch (error) {
     console.error("Upload error:", error);
     return res.status(500).json({ message: "Upload failed", status: false });
@@ -84,6 +69,21 @@ router.get("/:userId/:otherUserId", verifyToken, async (req, res) => {
     }).sort({ createdAt: 1 });
     res.json(messages);
   } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ─────────────────────────────────────────────
+   DELETE SINGLE MESSAGE (for everyone)
+   DELETE /messages/:messageId
+───────────────────────────────────────────── */
+router.delete("/:messageId", verifyToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    await Message.findByIdAndDelete(messageId);
+    res.status(200).json({ message: "Message deleted", status: true });
+  } catch (err) {
+    console.error("Delete message error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
