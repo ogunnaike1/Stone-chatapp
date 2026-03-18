@@ -23,6 +23,8 @@ const {
   addFriend,
   removeFriend,
   getMyFriends,
+  UpdateProfile, 
+  ChangePassword
 } = require("../Controller/UserController");
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -37,6 +39,8 @@ userRouter.post("/reset-password",  ResetPassword);   // step 3: resetToken + ne
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 userRouter.post("/upload-profile-pic", UploadProfilePic);
+userRouter.patch("/update-profile",  verifyToken, UpdateProfile);
+userRouter.patch("/change-password", verifyToken, ChangePassword);
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 userRouter.get("/users", verifyToken, getAllUsers);

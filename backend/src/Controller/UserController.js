@@ -383,6 +383,91 @@ const removeFriend = async (req, res) => {
   }
 };
 
+const UpdateProfile = async (req, res) => {
+  try {
+    const { userId, username, email } = req.body;
+ 
+    if (!userId || !username || !email) {
+      return res.status(400).json({ message: "userId, username and email are required", status: false });
+    }
+ 
+    // Check username uniqueness (exclude current user)
+    const existingUsername = await userModel.findOne({ username, _id: { $ne: userId } });
+    if (existingUsername) {
+      return res.status(409).json({ message: "That username is already taken.", status: false });
+    }
+ 
+    // Check email uniqueness (exclude current user)
+    const existingEmail = await userModel.findOne({ email, _id: { $ne: userId } });
+    if (existingEmail) {
+      return res.status(409).json({ message: "That email is already in use.", status: false });
+    }
+ 
+    const updated = await userModel.findByIdAndUpdate(
+      userId,
+      { username, email },
+      { new: true }
+    ).select("_id username email profilePicture");
+ 
+    if (!updated) {
+      return res.status(404).json({ message: "User not found", status: false });
+    }
+ 
+    return res.status(200).json({
+      message: "Profile updated",
+      status: true,
+      user: { id: updated._id, username: updated.username, email: updated.email, profilePicture: updated.profilePicture },
+    });
+  } catch (error) {
+    console.error("UpdateProfile error:", error);
+    return res.status(500).json({ message: "Server error", status: false });
+  }
+};
+ 
+/* ─────────────────────────────────────────────
+   CHANGE PASSWORD
+   PATCH /user/change-password
+   Body: { userId, currentPassword, newPassword }
+───────────────────────────────────────────── */
+const ChangePassword = async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+ 
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields are required", status: false });
+    }
+ 
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: false });
+    }
+ 
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect", status: false });
+    }
+ 
+    // Validate new password strength
+    if (!isPasswordValid(newPassword)) {
+      const errors = getPasswordErrors(newPassword);
+      return res.status(400).json({
+        message: "New password does not meet requirements",
+        status: false,
+        passwordErrors: errors.map(e => e.label),
+      });
+    }
+ 
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+ 
+    return res.status(200).json({ message: "Password changed successfully", status: true });
+  } catch (error) {
+    console.error("ChangePassword error:", error);
+    return res.status(500).json({ message: "Server error", status: false });
+  }
+};
+
 module.exports = {
   SignUpUser,
   LoginUser,
@@ -396,4 +481,6 @@ module.exports = {
   addFriend,
   removeFriend,
   getMyFriends,
+  UpdateProfile, 
+  ChangePassword
 };
