@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import * as THREE from "three";
 
-/* ─────────────────────────────────────────────
-   DATA  — kept realistic for a new product
-───────────────────────────────────────────── */
+type MockMessage = { from: string; text: string; delay: number };
+
 const NAV_LINKS = [
   { label: "Features", href: "/features" },
   { label: "About",    href: "/about"    },
@@ -22,12 +21,12 @@ const FEATURES = [
 ];
 
 const TESTIMONIALS = [
-  { name:"Abdul Satar",  role:"Software Engineer",          text:"I've tried a lot of chat apps. StoneChat is the first one that felt genuinely fast from day one. The UI is clean and the notifications actually work.", avatar:"AS", color:"#00b87a" },
-  { name:"Amosu Oyindamola",   role:"Social Media Manager",         text:"The friend request system is smooth and the message delivery is instant. Exactly what I needed to keep in touch with my team.",                          avatar:"AO", color:"#7b2fff" },
-  { name:"Ogunnaike Azeezat",role:"Artist",            text:"Finally switched from WhatsApp for my work chats. StoneChat keeps things professional and the interface doesn't get in the way.",                         avatar:"OA", color:"#00d9f5" },
+  { name:"Abdul Satar",        role:"Software Engineer",    text:"I've tried a lot of chat apps. StoneChat is the first one that felt genuinely fast from day one. The UI is clean and the notifications actually work.", avatar:"AS", color:"#00b87a" },
+  { name:"Amosu Oyindamola",   role:"Social Media Manager", text:"The friend request system is smooth and the message delivery is instant. Exactly what I needed to keep in touch with my team.",                          avatar:"AO", color:"#7b2fff" },
+  { name:"Ogunnaike Azeezat",  role:"Artist",               text:"Finally switched from WhatsApp for my work chats. StoneChat keeps things professional and the interface doesn't get in the way.",                         avatar:"OA", color:"#00d9f5" },
 ];
 
-const MOCK_MESSAGES = [
+const MOCK_MESSAGES: MockMessage[] = [
   { from:"them", text:"hey, you seeing those new StoneChat features? 👀", delay:0    },
   { from:"me",   text:"yeah omg the real-time delivery is insane",         delay:2000 },
   { from:"them", text:"and it's actually fast this time",                   delay:4200 },
@@ -36,16 +35,14 @@ const MOCK_MESSAGES = [
 ];
 
 const STATS = [
-  { value:"100%",   label:"Free to use"       },
-  { value:"<100ms", label:"Message delivery"  },
-  { value:"E2EE",   label:"Encrypted by default" },
-  { value:"∞",      label:"Message history"   },
+  { value:"100%",   label:"Free to use"          },
+  { value:"<100ms", label:"Message delivery"      },
+  { value:"E2EE",   label:"Encrypted by default"  },
+  { value:"∞",      label:"Message history"       },
 ];
 
-/* ─────────────────────────────────────────────
-   THREE.JS SCENE HOOK
-───────────────────────────────────────────── */
-function useThreeScene(mountRef: RefObject<null>) {
+/* ── THREE.JS SCENE HOOK ── */
+function useThreeScene(mountRef: RefObject<HTMLDivElement>) {
   useEffect(() => {
     if (!mountRef.current) return;
     const el = mountRef.current;
@@ -81,83 +78,119 @@ function useThreeScene(mountRef: RefObject<null>) {
     const dS = new THREE.Mesh(new THREE.PlaneGeometry(5.2,3.18), new THREE.MeshBasicMaterial({ color:0x060910, transparent:true, opacity:0.97 })); dS.position.z=0.07; deskG.add(dS);
     const dRim = new THREE.Mesh(new THREE.BoxGeometry(5.62,0.03,0.14), new THREE.MeshBasicMaterial({ color:0x7b2fff, transparent:true, opacity:0.75 })); dRim.position.set(0,1.82,0); deskG.add(dRim);
     const stand = new THREE.Mesh(new THREE.BoxGeometry(0.16,1.0,0.13), dM); stand.position.set(0,-2.3,0); deskG.add(stand);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.11,0.55), dM); base.position.set(0,-2.85,0); deskG.add(base);
+    const base  = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.11,0.55), dM); base.position.set(0,-2.85,0); deskG.add(base);
     deskG.position.set(1.5,-1.6,-0.6); deskG.rotation.y=-0.2;
     scene.add(deskG);
 
-    const N=160; const pPos=new Float32Array(N*3); const pVel: { z: number; }[]=[];
-    for(let i=0;i<N;i++){
-      pPos[i*3]=(Math.random()-.5)*22; pPos[i*3+1]=(Math.random()-.5)*13; pPos[i*3+2]=(Math.random()-.5)*10;
+    const N = 160;
+    const pPos = new Float32Array(N * 3);
+    const pVel: { x: number; y: number; z: number }[] = [];
+    for (let i = 0; i < N; i++) {
+      pPos[i*3]   = (Math.random()-.5)*22;
+      pPos[i*3+1] = (Math.random()-.5)*13;
+      pPos[i*3+2] = (Math.random()-.5)*10;
       pVel.push({ x:(Math.random()-.5)*.007, y:(Math.random()-.5)*.005, z:(Math.random()-.5)*.004 });
     }
-    const pGeo=new THREE.BufferGeometry(); pGeo.setAttribute("position",new THREE.BufferAttribute(pPos,3));
-    const pts=new THREE.Points(pGeo, new THREE.PointsMaterial({ color:0x00f5a0, size:0.055, transparent:true, opacity:0.45, sizeAttenuation:true }));
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+    const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color:0x00f5a0, size:0.055, transparent:true, opacity:0.45, sizeAttenuation:true }));
     scene.add(pts);
 
-    const trails=Array.from({length:8},(_,t)=>{
-      const s=new THREE.Vector3(-2.3,(Math.random()-.5)*2.5,0.1);
-      const e=new THREE.Vector3(0.7,(Math.random()-.5)*1.8,-0.4);
-      const m=new THREE.Vector3((s.x+e.x)/2,s.y+Math.random()*1.5-.6,(s.z+e.z)/2+.7);
-      const tp=Array.from({length:28},(_,i)=>{const a=i/27;return new THREE.Vector3((1-a)**2*s.x+2*(1-a)*a*m.x+a**2*e.x,(1-a)**2*s.y+2*(1-a)*a*m.y+a**2*e.y,(1-a)**2*s.z+2*(1-a)*a*m.z+a**2*e.z);});
-      const mat=new THREE.LineBasicMaterial({ color:t%3===0?0x00f5a0:t%3===1?0x00d9f5:0x7b2fff, transparent:true, opacity:0 });
-      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(tp),mat);
-      scene.add(line); return { line, mat, offset:t*1.2, speed:.6+Math.random()*.5 };
+    const trails = Array.from({length:8},(_,t) => {
+      const s = new THREE.Vector3(-2.3,(Math.random()-.5)*2.5,0.1);
+      const e = new THREE.Vector3(0.7,(Math.random()-.5)*1.8,-0.4);
+      const m = new THREE.Vector3((s.x+e.x)/2, s.y+Math.random()*1.5-.6, (s.z+e.z)/2+.7);
+      const tp = Array.from({length:28},(_,i) => {
+        const a = i/27;
+        return new THREE.Vector3(
+          (1-a)**2*s.x+2*(1-a)*a*m.x+a**2*e.x,
+          (1-a)**2*s.y+2*(1-a)*a*m.y+a**2*e.y,
+          (1-a)**2*s.z+2*(1-a)*a*m.z+a**2*e.z
+        );
+      });
+      const mat  = new THREE.LineBasicMaterial({ color:t%3===0?0x00f5a0:t%3===1?0x00d9f5:0x7b2fff, transparent:true, opacity:0 });
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(tp), mat);
+      scene.add(line);
+      return { line, mat, offset:t*1.2, speed:.6+Math.random()*.5 };
     });
 
-    const grid=new THREE.GridHelper(32,32,0x00f5a0,0x0d2020);
-    grid.material.transparent=true; grid.material.opacity=0.09; grid.position.y=-4.2; scene.add(grid);
+    const grid = new THREE.GridHelper(32,32,0x00f5a0,0x0d2020);
+    (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = 0.09;
+    grid.position.y = -4.2;
+    scene.add(grid);
 
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(.6,.015,8,64), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:.35 }));
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(.6,.015,8,64),
+      new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:.35 })
+    );
     ring.position.set(-.65,-1.7,0); ring.rotation.x=Math.PI/2; scene.add(ring);
 
-    const clock=new THREE.Clock(); let raf: number;
-    const tick=()=>{
-      raf=requestAnimationFrame(tick);
-      const t=clock.getElapsedTime();
-      cam.position.x=Math.sin(t*.05)*2.2;
-      cam.position.y=-1.2+Math.sin(t*.03)*.4;
-      cam.position.z=9.5-Math.sin(t*.04)*.8;
+    const clock = new THREE.Clock(); let raf: number;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const t = clock.getElapsedTime();
+      cam.position.x = Math.sin(t*.05)*2.2;
+      cam.position.y = -1.2+Math.sin(t*.03)*.4;
+      cam.position.z = 9.5-Math.sin(t*.04)*.8;
       cam.lookAt(0,-1.6,0);
-      phoneG.position.y=-1.8+Math.sin(t*.75)*.22;
-      phoneG.rotation.y=.32+Math.sin(t*.44)*.08;
-      phoneG.rotation.z=Math.sin(t*.6)*.03;
-      deskG.position.y=-1.6+Math.sin(t*.58+1.3)*.15;
-      deskG.rotation.y=-.2+Math.sin(t*.38)*.05;
-      const pa=pts.geometry.attributes.position.array;
-      for(let i=0;i<N;i++){
-        pa[i*3]+=pVel[i].x; pa[i*3+1]+=pVel[i].y; pa[i*3+2]+=pVel[i].z;
-        if(Math.abs(pa[i*3])>11)pVel[i].x*=-1;
-        if(Math.abs(pa[i*3+1])>6.5)pVel[i].y*=-1;
-        if(Math.abs(pa[i*3+2])>5)pVel[i].z*=-1;
+      phoneG.position.y  = -1.8+Math.sin(t*.75)*.22;
+      phoneG.rotation.y  = .32+Math.sin(t*.44)*.08;
+      phoneG.rotation.z  = Math.sin(t*.6)*.03;
+      deskG.position.y   = -1.6+Math.sin(t*.58+1.3)*.15;
+      deskG.rotation.y   = -.2+Math.sin(t*.38)*.05;
+      const pa = pts.geometry.attributes.position.array as Float32Array;
+      for (let i = 0; i < N; i++) {
+        pa[i*3]   += pVel[i].x; pa[i*3+1] += pVel[i].y; pa[i*3+2] += pVel[i].z;
+        if (Math.abs(pa[i*3])   > 11)  pVel[i].x *= -1;
+        if (Math.abs(pa[i*3+1]) > 6.5) pVel[i].y *= -1;
+        if (Math.abs(pa[i*3+2]) > 5)   pVel[i].z *= -1;
       }
-      pts.geometry.attributes.position.needsUpdate=true;
-      pts.rotation.y=t*.012;
-      trails.forEach(({mat,offset,speed})=>{const p=((t*speed+offset)%4)/4;mat.opacity=p<.5?p*2*.55:(1-p)*2*.55;});
+      pts.geometry.attributes.position.needsUpdate = true;
+      pts.rotation.y = t*.012;
+      trails.forEach(({mat,offset,speed}) => {
+        const p = ((t*speed+offset)%4)/4;
+        mat.opacity = p<.5 ? p*2*.55 : (1-p)*2*.55;
+      });
       ring.scale.setScalar(1+Math.sin(t*1.4)*.06);
-      ring.material.opacity=.25+Math.sin(t*1.4)*.12;
-      rl.intensity=2.5+Math.sin(t*1.1)*.6;
-      kl.intensity=2.2+Math.sin(t*.7)*.4;
-      renderer.render(scene,cam);
+      (ring.material as THREE.MeshBasicMaterial).opacity = .25+Math.sin(t*1.4)*.12;
+      rl.intensity = 2.5+Math.sin(t*1.1)*.6;
+      kl.intensity = 2.2+Math.sin(t*.7)*.4;
+      renderer.render(scene, cam);
     };
     tick();
 
-    const onResize=()=>{const nW=el.clientWidth,nH=el.clientHeight;cam.aspect=nW/nH;cam.updateProjectionMatrix();renderer.setSize(nW,nH);};
-    window.addEventListener("resize",onResize);
-    return ()=>{cancelAnimationFrame(raf);window.removeEventListener("resize",onResize);renderer.dispose();if(renderer.domElement.parentNode===el)el.removeChild(renderer.domElement);};
-  },[]);
+    const onResize = () => {
+      const nW = el.clientWidth, nH = el.clientHeight;
+      cam.aspect = nW/nH; cam.updateProjectionMatrix(); renderer.setSize(nW,nH);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      renderer.dispose();
+      if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+    };
+  }, []);
 }
 
-/* ─────────────────────────────────────────────
-   OVERLAYS
-───────────────────────────────────────────── */
-const PhoneOverlay=()=>{
-  const [msgs,setMsgs]=useState([]);
-  const [typing,setTyping]=useState(false);
-  useEffect(()=>{
-    const run=()=>{setMsgs([]);setTyping(false);MOCK_MESSAGES.forEach(m=>{setTimeout(()=>{setTyping(true);setTimeout(()=>{setTyping(false);setMsgs(p=>[...p,m]);},750);},m.delay);});};
-    run();const id=setInterval(run,13500);return()=>clearInterval(id);
-  },[]);
-  return(
+/* ── OVERLAYS ── */
+const PhoneOverlay = () => {
+  const [msgs, setMsgs] = useState<MockMessage[]>([]);
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const run = () => {
+      setMsgs([]); setTyping(false);
+      MOCK_MESSAGES.forEach(m => {
+        setTimeout(() => {
+          setTyping(true);
+          setTimeout(() => { setTyping(false); setMsgs(p => [...p, m]); }, 750);
+        }, m.delay);
+      });
+    };
+    run(); const id = setInterval(run, 13500); return () => clearInterval(id);
+  }, []);
+  return (
     <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",padding:"12px 9px 9px",gap:4,overflow:"hidden",fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
         <div style={{width:18,height:18,borderRadius:"50%",background:"linear-gradient(135deg,#00f5a0,#00d9f5)",flexShrink:0}}/>
@@ -166,16 +199,18 @@ const PhoneOverlay=()=>{
       </div>
       <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,justifyContent:"flex-end"}}>
         <AnimatePresence>
-          {msgs.map((m,i)=>(
+          {msgs.map((m,i) => (
             <motion.div key={i} initial={{opacity:0,y:8,scale:.93}} animate={{opacity:1,y:0,scale:1}} transition={{type:"spring",stiffness:420,damping:26}} style={{display:"flex",justifyContent:m.from==="me"?"flex-end":"flex-start"}}>
               <div style={{background:m.from==="me"?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.09)",color:m.from==="me"?"#000":"#fff",padding:"4px 8px",borderRadius:m.from==="me"?"11px 11px 3px 11px":"11px 11px 11px 3px",fontSize:7.5,maxWidth:"85%",fontWeight:m.from==="me"?600:400,border:m.from!=="me"?"1px solid rgba(255,255,255,0.08)":"none"}}>{m.text}</div>
             </motion.div>
           ))}
-          {typing&&<motion.div key="t" initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} exit={{opacity:0}} style={{display:"flex",justifyContent:"flex-start"}}>
-            <div style={{display:"flex",gap:3,padding:"5px 9px",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"11px 11px 11px 3px",width:"fit-content"}}>
-              {[0,1,2].map(i=><motion.div key={i} animate={{y:[0,-4,0]}} transition={{duration:.55,repeat:Infinity,delay:i*.16}} style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.4)"}}/>)}
-            </div>
-          </motion.div>}
+          {typing && (
+            <motion.div key="t" initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} exit={{opacity:0}} style={{display:"flex",justifyContent:"flex-start"}}>
+              <div style={{display:"flex",gap:3,padding:"5px 9px",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"11px 11px 11px 3px",width:"fit-content"}}>
+                {[0,1,2].map(i => <motion.div key={i} animate={{y:[0,-4,0]}} transition={{duration:.55,repeat:Infinity,delay:i*.16}} style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.4)"}}/>)}
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
       <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:18,padding:"4px 9px",display:"flex",alignItems:"center",gap:5}}>
@@ -186,20 +221,28 @@ const PhoneOverlay=()=>{
   );
 };
 
-const DesktopOverlay=()=>{
-  const [msgs,setMsgs]=useState([]);
-  const [typing,setTyping]=useState(false);
-  useEffect(()=>{
-    const run=()=>{setMsgs([]);setTyping(false);MOCK_MESSAGES.forEach(m=>{setTimeout(()=>{setTyping(true);setTimeout(()=>{setTyping(false);setMsgs(p=>[...p,m]);},700);},m.delay+700);});};
-    run();const id=setInterval(run,13500);return()=>clearInterval(id);
-  },[]);
-  return(
+const DesktopOverlay = () => {
+  const [msgs, setMsgs] = useState<MockMessage[]>([]);
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const run = () => {
+      setMsgs([]); setTyping(false);
+      MOCK_MESSAGES.forEach(m => {
+        setTimeout(() => {
+          setTyping(true);
+          setTimeout(() => { setTyping(false); setMsgs(p => [...p, m]); }, 700);
+        }, m.delay+700);
+      });
+    };
+    run(); const id = setInterval(run, 13500); return () => clearInterval(id);
+  }, []);
+  return (
     <div style={{position:"absolute",inset:0,display:"flex",fontFamily:"'DM Sans',sans-serif",overflow:"hidden"}}>
       <div style={{width:90,background:"rgba(255,255,255,0.02)",borderRight:"1px solid rgba(255,255,255,0.05)",padding:"9px 6px",display:"flex",flexDirection:"column",gap:5}}>
         <div style={{fontSize:9,fontWeight:800,fontFamily:"'Syne',sans-serif",background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:5}}>StoneChat</div>
-        {["Tunde A.","Chisom O.","David N.","Friends"].map((n,i)=>(
+        {["Tunde A.","Chisom O.","David N.","Friends"].map((n,i) => (
           <div key={n} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 5px",borderRadius:5,background:i===0?"rgba(0,245,160,0.08)":"transparent",borderLeft:i===0?"2px solid #00f5a0":"2px solid transparent"}}>
-            <div style={{width:15,height:15,borderRadius:"50%",flexShrink:0,background:["#00b87a","#7b2fff","#00d9f5","#ff9800"][i]}}/>
+            <div style={{width:15,height:15,borderRadius:"50%",flexShrink:0,background:(["#00b87a","#7b2fff","#00d9f5","#ff9800"] as string[])[i]}}/>
             <span style={{fontSize:7,color:i===0?"#fff":"rgba(255,255,255,0.35)",whiteSpace:"nowrap"}}>{n}</span>
           </div>
         ))}
@@ -212,16 +255,18 @@ const DesktopOverlay=()=>{
         </div>
         <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,justifyContent:"flex-end"}}>
           <AnimatePresence>
-            {msgs.map((m,i)=>(
+            {msgs.map((m,i) => (
               <motion.div key={i} initial={{opacity:0,x:m.from==="me"?14:-14}} animate={{opacity:1,x:0}} transition={{type:"spring",stiffness:380,damping:28}} style={{display:"flex",justifyContent:m.from==="me"?"flex-end":"flex-start"}}>
                 <div style={{background:m.from==="me"?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.07)",color:m.from==="me"?"#000":"#fff",padding:"4px 8px",borderRadius:m.from==="me"?"10px 10px 2px 10px":"10px 10px 10px 2px",fontSize:7.5,maxWidth:"76%",fontWeight:m.from==="me"?600:400,border:m.from!=="me"?"1px solid rgba(255,255,255,0.07)":"none",boxShadow:m.from==="me"?"0 2px 10px rgba(0,245,160,0.22)":"none"}}>{m.text}</div>
               </motion.div>
             ))}
-            {typing&&<motion.div key="dt" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-              <div style={{display:"flex",gap:3,padding:"5px 9px",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"10px 10px 10px 2px",width:"fit-content"}}>
-                {[0,1,2].map(i=><motion.div key={i} animate={{y:[0,-4,0]}} transition={{duration:.55,repeat:Infinity,delay:i*.16}} style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.4)"}}/>)}
-              </div>
-            </motion.div>}
+            {typing && (
+              <motion.div key="dt" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                <div style={{display:"flex",gap:3,padding:"5px 9px",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"10px 10px 10px 2px",width:"fit-content"}}>
+                  {[0,1,2].map(i => <motion.div key={i} animate={{y:[0,-4,0]}} transition={{duration:.55,repeat:Infinity,delay:i*.16}} style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.4)"}}/>)}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
         <div style={{marginTop:5,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"4px 10px",display:"flex",alignItems:"center",gap:6}}>
@@ -233,10 +278,10 @@ const DesktopOverlay=()=>{
   );
 };
 
-const Hero3D=()=>{
-  const mountRef=useRef(null);
+const Hero3D = () => {
+  const mountRef = useRef<HTMLDivElement>(null);
   useThreeScene(mountRef);
-  return(
+  return (
     <div style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
       <div ref={mountRef} style={{position:"absolute",inset:0}}/>
       <div style={{position:"absolute",left:"19.2%",top:"13%",width:"9.8%",height:"57%",overflow:"hidden",borderRadius:"5px",pointerEvents:"none",zIndex:5}}>
@@ -246,11 +291,11 @@ const Hero3D=()=>{
         <DesktopOverlay/>
       </div>
       {[
-        {icon:"🔒",label:"E2E Encrypted", style:{bottom:"22%",left:"3%"},  delay:1   },
-        {icon:"⚡",label:"Real-time",      style:{top:"14%",  left:"1%"},   delay:3.5 },
-        {icon:"🤝",label:"Friend System",  style:{top:"12%",  right:"2%"},  delay:6.5 },
-        {icon:"🔔",label:"Smart Alerts",   style:{bottom:"20%",right:"2%"}, delay:9.5 },
-      ].map(({icon,label,style,delay})=>(
+        {icon:"🔒", label:"E2E Encrypted", style:{bottom:"22%",left:"3%"},   delay:1   },
+        {icon:"⚡", label:"Real-time",      style:{top:"14%",  left:"1%"},    delay:3.5 },
+        {icon:"🤝", label:"Friend System",  style:{top:"12%",  right:"2%"},   delay:6.5 },
+        {icon:"🔔", label:"Smart Alerts",   style:{bottom:"20%",right:"2%"},  delay:9.5 },
+      ].map(({icon,label,style,delay}) => (
         <motion.div key={label} initial={{opacity:0,scale:.75,y:12}} animate={{opacity:[0,1,1,1,0],scale:[.75,1,1,1,.88],y:[12,0,0,-2,-8]}} transition={{duration:4,delay,repeat:Infinity,repeatDelay:10,ease:[.16,1,.3,1]}} style={{position:"absolute",display:"flex",alignItems:"center",gap:8,background:"rgba(7,10,15,0.86)",border:"1px solid rgba(0,245,160,0.2)",borderRadius:30,padding:"7px 14px",backdropFilter:"blur(18px)",boxShadow:"0 8px 32px rgba(0,0,0,0.55)",fontFamily:"'DM Sans',sans-serif",pointerEvents:"none",zIndex:20,...style}}>
           <span style={{fontSize:15}}>{icon}</span>
           <span style={{color:"#fff",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{label}</span>
@@ -260,12 +305,10 @@ const Hero3D=()=>{
   );
 };
 
-/* ─────────────────────────────────────────────
-   SHARED COMPONENTS
-───────────────────────────────────────────── */
-const FeatureCard=({icon,title,desc,accent,index})=>{
-  const [hov,setHov]=useState(false);
-  return(
+/* ── SHARED COMPONENTS ── */
+const FeatureCard = ({ icon, title, desc, accent, index }: { icon: string; title: string; desc: string; accent: string; index: number }) => {
+  const [hov, setHov] = useState(false);
+  return (
     <motion.div initial={{opacity:0,y:40}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.5,delay:index*.07}} onHoverStart={()=>setHov(true)} onHoverEnd={()=>setHov(false)} style={{background:"rgba(255,255,255,0.03)",border:`1px solid ${hov?accent+"30":"rgba(255,255,255,0.07)"}`,borderRadius:22,padding:"28px 24px",cursor:"default",position:"relative",overflow:"hidden",transition:"border-color 0.3s"}}>
       <motion.div animate={{opacity:hov?1:0}} transition={{duration:.3}} style={{position:"absolute",inset:0,background:`radial-gradient(ellipse at 30% 30%, ${accent}0a, transparent 65%)`,pointerEvents:"none"}}/>
       <motion.div animate={{scaleX:hov?1:0}} transition={{duration:.3,ease:"easeOut"}} style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${accent},transparent)`,transformOrigin:"left"}}/>
@@ -276,7 +319,7 @@ const FeatureCard=({icon,title,desc,accent,index})=>{
   );
 };
 
-const TestimonialCard=({name,role,text,avatar,color,index})=>(
+const TestimonialCard = ({ name, role, text, avatar, color, index }: { name: string; role: string; text: string; avatar: string; color: string; index: number }) => (
   <motion.div initial={{opacity:0,y:30}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.5,delay:index*.1}} whileHover={{y:-4}} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"28px 26px",position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:16,right:20,fontFamily:"Georgia,serif",fontSize:72,lineHeight:1,color:"rgba(255,255,255,0.04)",fontWeight:900,pointerEvents:"none"}}>"</div>
     <div style={{color:"rgba(255,255,255,0.72)",fontSize:14,lineHeight:1.85,marginBottom:24,position:"relative"}}>{text}</div>
@@ -290,36 +333,34 @@ const TestimonialCard=({name,role,text,avatar,color,index})=>(
   </motion.div>
 );
 
-const StatCard=({value,label,index})=>(
+const StatCard = ({ value, label, index }: { value: string; label: string; index: number }) => (
   <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:.5,delay:index*.1}} style={{textAlign:"center"}}>
     <div style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(28px,4vw,44px)",fontWeight:800,background:"linear-gradient(135deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:"-1px"}}>{value}</div>
     <div style={{color:"rgba(255,255,255,0.4)",fontSize:13,marginTop:4}}>{label}</div>
   </motion.div>
 );
 
-const ShimmerBtn=({children,onClick,style={}})=>(
+const ShimmerBtn = ({ children, onClick, style = {} }: { children: React.ReactNode; onClick: () => void; style?: React.CSSProperties }) => (
   <motion.button onClick={onClick} whileHover={{scale:1.05,boxShadow:"0 0 44px rgba(0,245,160,0.45)"}} whileTap={{scale:.97}} style={{background:"linear-gradient(135deg,#00f5a0,#00d9f5)",color:"#000",border:"none",borderRadius:50,padding:"16px 38px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",position:"relative",overflow:"hidden",boxShadow:"0 4px 20px rgba(0,245,160,0.25)",...style}}>
     <motion.div animate={{x:["-120%","160%"]}} transition={{duration:2.2,repeat:Infinity,ease:"linear",repeatDelay:1.5}} style={{position:"absolute",inset:0,width:"45%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)",pointerEvents:"none"}}/>
     <span style={{position:"relative",zIndex:1}}>{children}</span>
   </motion.button>
 );
 
-/* ─────────────────────────────────────────────
-   MAIN PAGE
-───────────────────────────────────────────── */
-const ChatLanding=()=>{
-  const navigate=useNavigate();
-  const {scrollY}=useScroll();
-  const navBg=useTransform(scrollY,[0,80],["rgba(7,10,15,0)","rgba(7,10,15,0.94)"]);
-  const cx=useMotionValue(-200),cy=useMotionValue(-200);
-  const sx=useSpring(cx,{stiffness:90,damping:22}),sy=useSpring(cy,{stiffness:90,damping:22});
-  useEffect(()=>{
-    const mv=(e: { clientX: number; clientY: number; })=>{cx.set(e.clientX-200);cy.set(e.clientY-200);};
-    window.addEventListener("mousemove",mv);
-    return()=>window.removeEventListener("mousemove",mv);
-  },[]);
+/* ── MAIN PAGE ── */
+const ChatLanding = () => {
+  const navigate = useNavigate();
+  const { scrollY } = useScroll();
+  const navBg = useTransform(scrollY, [0,80], ["rgba(7,10,15,0)","rgba(7,10,15,0.94)"]);
+  const cx = useMotionValue(-200), cy = useMotionValue(-200);
+  const sx = useSpring(cx, {stiffness:90,damping:22}), sy = useSpring(cy, {stiffness:90,damping:22});
+  useEffect(() => {
+    const mv = (e: MouseEvent) => { cx.set(e.clientX-200); cy.set(e.clientY-200); };
+    window.addEventListener("mousemove", mv);
+    return () => window.removeEventListener("mousemove", mv);
+  }, []);
 
-  return(
+  return (
     <div style={{background:"#070a0f",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"#fff",overflowX:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -334,7 +375,7 @@ const ChatLanding=()=>{
       <motion.div style={{position:"fixed",left:sx,top:sy,width:400,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(0,245,160,0.05) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
-        {[{x:"8%",y:"12%",s:500,c:"#00f5a0",d:0},{x:"62%",y:"4%",s:400,c:"#00d9f5",d:1.5},{x:"78%",y:"58%",s:350,c:"#7b2fff",d:3},{x:"18%",y:"68%",s:300,c:"#00f5a0",d:2}].map((o,i)=>(
+        {[{x:"8%",y:"12%",s:500,c:"#00f5a0",d:0},{x:"62%",y:"4%",s:400,c:"#00d9f5",d:1.5},{x:"78%",y:"58%",s:350,c:"#7b2fff",d:3},{x:"18%",y:"68%",s:300,c:"#00f5a0",d:2}].map((o,i) => (
           <motion.div key={i} animate={{y:[0,-28,0],scale:[1,1.08,1]}} transition={{duration:7+o.d,repeat:Infinity,ease:"easeInOut",delay:o.d}} style={{position:"absolute",left:o.x,top:o.y,width:o.s,height:o.s,borderRadius:"50%",background:o.c,filter:"blur(100px)",opacity:.09,pointerEvents:"none"}}/>
         ))}
       </div>
@@ -348,7 +389,7 @@ const ChatLanding=()=>{
             StoneChat
           </motion.div>
           <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:.2}} style={{display:"flex",gap:32,alignItems:"center"}}>
-            {NAV_LINKS.map(link=>(
+            {NAV_LINKS.map(link => (
               <motion.a key={link.label} href={link.href} whileHover={{color:"#fff",y:-1}} onClick={e=>{if(link.href.startsWith("/")){e.preventDefault();navigate(link.href);}}} style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,fontWeight:500,transition:"color 0.2s"}}>{link.label}</motion.a>
             ))}
             <ShimmerBtn style={{padding:"10px 24px",fontSize:14}} onClick={()=>navigate("/auth/signup")}>Get Started</ShimmerBtn>
@@ -369,7 +410,7 @@ const ChatLanding=()=>{
           </motion.div>
 
           <div style={{textAlign:"center",marginBottom:28,pointerEvents:"none"}}>
-            {[{text:"Connect faster.",grad:false},{text:"Chat smarter.",grad:true}].map(({text,grad},lineIdx)=>(
+            {[{text:"Connect faster.",grad:false},{text:"Chat smarter.",grad:true}].map(({text,grad},lineIdx) => (
               <div key={text} style={{overflow:"hidden",lineHeight:1,marginBottom:4}}>
                 <motion.div initial={{y:"110%",opacity:0}} animate={{y:"0%",opacity:1}} transition={{duration:.9,delay:.15+lineIdx*.18,ease:[.16,1,.3,1]}}>
                   <span style={{fontFamily:"'Syne',sans-serif",fontSize:"clamp(58px,9vw,116px)",fontWeight:800,letterSpacing:"-4px",lineHeight:1,display:"block",...(grad?{background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}:{color:"#fff"}),textShadow:grad?"none":"0 2px 40px rgba(0,0,0,0.8)"}}>{text}</span>
@@ -393,7 +434,7 @@ const ChatLanding=()=>{
 
           <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.0}} style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",justifyContent:"center",pointerEvents:"auto"}}>
             <div style={{display:"flex"}}>
-              {["#00b87a","#7b2fff","#00d9f5","#ff9800","#e91e8c"].map((c,i)=>(
+              {["#00b87a","#7b2fff","#00d9f5","#ff9800","#e91e8c"].map((c,i) => (
                 <div key={c} style={{width:30,height:30,borderRadius:"50%",background:c,border:"2px solid rgba(7,10,15,0.8)",marginLeft:i===0?0:-9,zIndex:5-i,position:"relative",boxShadow:"0 2px 8px rgba(0,0,0,0.5)"}}/>
               ))}
             </div>
@@ -414,7 +455,7 @@ const ChatLanding=()=>{
       {/* STATS */}
       <section style={{position:"relative",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)",borderBottom:"1px solid rgba(255,255,255,0.05)",background:"rgba(255,255,255,0.02)"}}>
         <div style={{maxWidth:1000,margin:"0 auto",padding:"44px 28px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:32}}>
-          {STATS.map((s,i)=><StatCard key={s.label} {...s} index={i}/>)}
+          {STATS.map((s,i) => <StatCard key={s.label} {...s} index={i}/>)}
         </div>
       </section>
 
@@ -429,7 +470,7 @@ const ChatLanding=()=>{
             </h2>
           </motion.div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(290px,1fr))",gap:20}}>
-            {FEATURES.map((f,i)=><FeatureCard key={f.title} {...f} index={i}/>)}
+            {FEATURES.map((f,i) => <FeatureCard key={f.title} {...f} index={i}/>)}
           </div>
         </div>
       </section>
@@ -444,7 +485,7 @@ const ChatLanding=()=>{
             <p style={{color:"rgba(255,255,255,0.35)",fontSize:15,marginTop:12}}>Here's what our first users are saying.</p>
           </motion.div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(290px,1fr))",gap:20}}>
-            {TESTIMONIALS.map((t,i)=><TestimonialCard key={t.name} {...t} index={i}/>)}
+            {TESTIMONIALS.map((t,i) => <TestimonialCard key={t.name} {...t} index={i}/>)}
           </div>
         </div>
       </section>
@@ -469,7 +510,7 @@ const ChatLanding=()=>{
         <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontSize:24,fontWeight:800,background:"linear-gradient(90deg,#00f5a0,#00d9f5)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>StoneChat</div>
           <div style={{display:"flex",gap:28}}>
-            {NAV_LINKS.map(link=>(
+            {NAV_LINKS.map(link => (
               <motion.a key={link.label} href={link.href} onClick={e=>{if(link.href.startsWith("/")){e.preventDefault();navigate(link.href);}}} whileHover={{color:"rgba(255,255,255,0.8)"}} style={{color:"rgba(255,255,255,0.3)",textDecoration:"none",fontSize:13}}>{link.label}</motion.a>
             ))}
           </div>
