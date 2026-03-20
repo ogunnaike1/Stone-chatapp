@@ -13,7 +13,6 @@ const server = http.createServer(app);
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://stonechat.vercel.app",
     "https://stone-chatapp.vercel.app",
     process.env.CLIENT_URL,
   ],
