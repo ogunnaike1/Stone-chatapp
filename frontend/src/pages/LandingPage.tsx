@@ -29,19 +29,27 @@ const features = [
 
 const phoneMessages = [
   { side: "left", text: "Hey, are you online?", time: "09:41" },
-  { side: "right", text: "Yep — testing the new StoneChat landing page 👀", time: "09:42" },
+  {
+    side: "right",
+    text: "Yep — testing the new StoneChat landing page 👀",
+    time: "09:42",
+  },
   { side: "left", text: "This 3D effect looks amazing.", time: "09:42" },
   { side: "right", text: "Wait till you see the live app.", time: "09:43" },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  show: (delay = 0) => ({
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 30 },
+  animate: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, delay, ease: "easeOut" },
-  }),
-};
+    transition: {
+      duration: 0.7,
+      delay,
+      ease: "easeOut" as const,
+    },
+  },
+});
 
 function Glow({
   className,
@@ -98,12 +106,16 @@ function Phone3D() {
   };
 
   return (
-    <div className="relative mx-auto w-full max-w-[460px]" style={{ perspective: 1400 }}>
+    <div
+      className="relative mx-auto w-full max-w-[460px]"
+      style={{ perspective: 1400 }}
+    >
       <motion.div
         className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-400/20"
         animate={{ rotate: 360 }}
         transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
       />
+
       <motion.div
         className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-fuchsia-400/10"
         animate={{ rotate: -360 }}
@@ -135,7 +147,10 @@ function Phone3D() {
           style={{ transform: "translateZ(40px)" }}
         >
           <div className="relative h-full overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-[#0f172a]">
-            <motion.div className="absolute inset-0 opacity-70" style={{ background: glare }} />
+            <motion.div
+              className="absolute inset-0 opacity-70"
+              style={{ background: glare }}
+            />
 
             <div className="absolute left-1/2 top-3 z-20 h-6 w-28 -translate-x-1/2 rounded-full bg-black/70" />
 
@@ -148,9 +163,14 @@ function Phone3D() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-600">
                     <FaComments className="text-white" />
                   </div>
+
                   <div>
-                    <p className="text-sm font-semibold text-white">StoneChat</p>
-                    <p className="text-xs text-emerald-300">12 friends online</p>
+                    <p className="text-sm font-semibold text-white">
+                      StoneChat
+                    </p>
+                    <p className="text-xs text-emerald-300">
+                      12 friends online
+                    </p>
                   </div>
                 </div>
 
@@ -175,7 +195,9 @@ function Phone3D() {
                   }`}
                 >
                   <p>{msg.text}</p>
-                  <span className="mt-1 block text-[10px] opacity-70">{msg.time}</span>
+                  <span className="mt-1 block text-[10px] opacity-70">
+                    {msg.time}
+                  </span>
                 </motion.div>
               ))}
             </div>
@@ -208,7 +230,9 @@ function Phone3D() {
             className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 backdrop-blur-md shadow-xl"
           >
             <p className="text-xs text-cyan-200">Encrypted chat</p>
-            <p className="text-sm font-semibold text-white">Private by design</p>
+            <p className="text-sm font-semibold text-white">
+              Private by design
+            </p>
           </motion.div>
         </div>
 
@@ -222,7 +246,9 @@ function Phone3D() {
             className="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-3 backdrop-blur-md shadow-xl"
           >
             <p className="text-xs text-fuchsia-200">Live status</p>
-            <p className="text-sm font-semibold text-white">Friends online now</p>
+            <p className="text-sm font-semibold text-white">
+              Friends online now
+            </p>
           </motion.div>
         </div>
       </motion.div>
@@ -234,10 +260,12 @@ const LandingPage = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030712] text-white">
       <Glow className="absolute -left-20 top-8 h-72 w-72 rounded-full bg-cyan-500/30 blur-3xl" />
+
       <Glow
         className="absolute right-0 top-24 h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl"
         delay={1}
       />
+
       <Glow
         className="absolute bottom-10 left-1/3 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl"
         delay={2}
@@ -256,6 +284,7 @@ const LandingPage = () => {
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 shadow-lg">
             <FaComments className="text-lg text-white" />
           </div>
+
           <div>
             <p className="text-lg font-bold tracking-wide">STONECHAT</p>
             <p className="text-xs text-slate-400">Modern chat experience</p>
@@ -271,12 +300,14 @@ const LandingPage = () => {
           <a href="#features" className="text-sm text-slate-300 hover:text-white">
             Features
           </a>
+
           <a
             href="/auth/login"
             className="rounded-full border border-white/15 bg-white/10 px-5 py-2 text-sm backdrop-blur-md hover:bg-white/15"
           >
             Login
           </a>
+
           <a
             href="/auth/register"
             className="rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-2 text-sm font-medium text-white shadow-lg hover:scale-[1.02]"
@@ -289,10 +320,8 @@ const LandingPage = () => {
       <main className="relative z-10 mx-auto grid min-h-[calc(100vh-90px)] max-w-7xl items-center gap-14 px-6 pb-20 pt-6 lg:grid-cols-2 lg:px-8">
         <div>
           <motion.div
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            custom={0.1}
+            initial={fadeUp(0.1).initial}
+            animate={fadeUp(0.1).animate}
             className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 backdrop-blur-md"
           >
             <span className="h-2 w-2 rounded-full bg-cyan-300" />
@@ -300,10 +329,8 @@ const LandingPage = () => {
           </motion.div>
 
           <motion.h1
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            custom={0.2}
+            initial={fadeUp(0.2).initial}
+            animate={fadeUp(0.2).animate}
             className="max-w-xl text-5xl font-black leading-tight sm:text-6xl"
           >
             Chat in a space that feels
@@ -315,10 +342,8 @@ const LandingPage = () => {
           </motion.h1>
 
           <motion.p
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            custom={0.35}
+            initial={fadeUp(0.35).initial}
+            animate={fadeUp(0.35).animate}
             className="mt-6 max-w-xl text-lg leading-8 text-slate-300"
           >
             StoneChat helps people connect instantly with private messaging,
@@ -327,10 +352,8 @@ const LandingPage = () => {
           </motion.p>
 
           <motion.div
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            custom={0.5}
+            initial={fadeUp(0.5).initial}
+            animate={fadeUp(0.5).animate}
             className="mt-8 flex flex-col gap-4 sm:flex-row"
           >
             <a
@@ -339,6 +362,7 @@ const LandingPage = () => {
             >
               Start chatting
             </a>
+
             <a
               href="/auth/login"
               className="rounded-full border border-white/15 bg-white/10 px-7 py-4 text-center font-semibold text-white backdrop-blur-md transition hover:bg-white/15"
@@ -348,20 +372,20 @@ const LandingPage = () => {
           </motion.div>
 
           <motion.div
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            custom={0.65}
+            initial={fadeUp(0.65).initial}
+            animate={fadeUp(0.65).animate}
             className="mt-10 grid max-w-xl grid-cols-3 gap-4"
           >
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
               <p className="text-2xl font-bold text-white">10x</p>
               <p className="text-sm text-slate-400">Smoother feel</p>
             </div>
+
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
               <p className="text-2xl font-bold text-white">24/7</p>
               <p className="text-sm text-slate-400">Real-time messaging</p>
             </div>
+
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
               <p className="text-2xl font-bold text-white">100%</p>
               <p className="text-sm text-slate-400">Modern UI vibe</p>
@@ -379,7 +403,10 @@ const LandingPage = () => {
         </motion.div>
       </main>
 
-      <section id="features" className="relative z-10 mx-auto max-w-7xl px-6 pb-24 lg:px-8">
+      <section
+        id="features"
+        className="relative z-10 mx-auto max-w-7xl px-6 pb-24 lg:px-8"
+      >
         <div className="mb-10 max-w-2xl">
           <motion.h2
             initial={{ opacity: 0, y: 22 }}
@@ -390,6 +417,7 @@ const LandingPage = () => {
           >
             Built for modern conversations
           </motion.h2>
+
           <motion.p
             initial={{ opacity: 0, y: 22 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -397,7 +425,8 @@ const LandingPage = () => {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="mt-3 text-slate-400"
           >
-            A landing page that feels dynamic, premium, and ready for a real chat product.
+            A landing page that feels dynamic, premium, and ready for a real
+            chat product.
           </motion.p>
         </div>
 
@@ -428,7 +457,10 @@ const LandingPage = () => {
                   <Icon />
                 </div>
 
-                <h3 className="text-xl font-semibold text-white">{feature.title}</h3>
+                <h3 className="text-xl font-semibold text-white">
+                  {feature.title}
+                </h3>
+
                 <p className="mt-3 leading-7 text-slate-400">{feature.text}</p>
               </motion.div>
             );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import * as THREE from "three";
@@ -45,7 +45,7 @@ const STATS = [
 /* ─────────────────────────────────────────────
    THREE.JS SCENE HOOK
 ───────────────────────────────────────────── */
-function useThreeScene(mountRef) {
+function useThreeScene(mountRef: RefObject<null>) {
   useEffect(() => {
     if (!mountRef.current) return;
     const el = mountRef.current;
@@ -85,7 +85,7 @@ function useThreeScene(mountRef) {
     deskG.position.set(1.5,-1.6,-0.6); deskG.rotation.y=-0.2;
     scene.add(deskG);
 
-    const N=160; const pPos=new Float32Array(N*3); const pVel=[];
+    const N=160; const pPos=new Float32Array(N*3); const pVel: { z: number; }[]=[];
     for(let i=0;i<N;i++){
       pPos[i*3]=(Math.random()-.5)*22; pPos[i*3+1]=(Math.random()-.5)*13; pPos[i*3+2]=(Math.random()-.5)*10;
       pVel.push({ x:(Math.random()-.5)*.007, y:(Math.random()-.5)*.005, z:(Math.random()-.5)*.004 });
@@ -110,7 +110,7 @@ function useThreeScene(mountRef) {
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.6,.015,8,64), new THREE.MeshBasicMaterial({ color:0x00f5a0, transparent:true, opacity:.35 }));
     ring.position.set(-.65,-1.7,0); ring.rotation.x=Math.PI/2; scene.add(ring);
 
-    const clock=new THREE.Clock(); let raf;
+    const clock=new THREE.Clock(); let raf: number;
     const tick=()=>{
       raf=requestAnimationFrame(tick);
       const t=clock.getElapsedTime();
@@ -314,7 +314,7 @@ const ChatLanding=()=>{
   const cx=useMotionValue(-200),cy=useMotionValue(-200);
   const sx=useSpring(cx,{stiffness:90,damping:22}),sy=useSpring(cy,{stiffness:90,damping:22});
   useEffect(()=>{
-    const mv=(e)=>{cx.set(e.clientX-200);cy.set(e.clientY-200);};
+    const mv=(e: { clientX: number; clientY: number; })=>{cx.set(e.clientX-200);cy.set(e.clientY-200);};
     window.addEventListener("mousemove",mv);
     return()=>window.removeEventListener("mousemove",mv);
   },[]);
