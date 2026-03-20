@@ -14,10 +14,12 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://stonechat.vercel.app",
+    "https://stone-chatapp.vercel.app",  // ← add this
     process.env.CLIENT_URL,
   ],
   credentials: true,
 }));
+
 app.use(express.json({ limit: "50mb" }));
 
 app.use("/user",     require("./Route/UserRoute")); 

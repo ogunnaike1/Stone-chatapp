@@ -4,16 +4,17 @@ const Message = require("../Model/MessageModel");
 
 module.exports = (server) => {
   const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:5173",
-      "https://stonechat.vercel.app",
-      process.env.CLIENT_URL,
-    ],
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
+    cors: {
+      origin: [
+        "http://localhost:5173",
+        "https://stonechat.vercel.app",
+        "https://stone-chatapp.vercel.app",  // ← add this
+        process.env.CLIENT_URL,
+      ],
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+  });
 
   io.on("connection", (socket) => {
     console.log("🟢 Connected:", socket.id);
