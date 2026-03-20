@@ -14,7 +14,7 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://stonechat.vercel.app",
-    "https://stone-chatapp.vercel.app",  // ← add this
+    "https://stone-chatapp.vercel.app",
     process.env.CLIENT_URL,
   ],
   credentials: true,
@@ -24,9 +24,9 @@ app.use(express.json({ limit: "50mb" }));
 
 app.use("/user",     require("./Route/UserRoute")); 
 app.use("/messages", require("./Route/MessageRoute"));
-app.use("/admin",    require("./Route/AdminRoute"));   // ← added
+app.use("/admin",    require("./Route/AdminRoute"));
 
-const port = 5002
+const port = process.env.PORT || 5002;  // ← fixed
 
 app.get("/ping", (req, res) => res.send("pong"));
 
