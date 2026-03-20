@@ -133,8 +133,11 @@ const ChatHome = () => {
   }, [loggedInUserId]);
 
   /* ── SOCKET REGISTER ── */
+
+
   useEffect(() => {
     if (!loggedInUserId) return;
+    socket.connect();             // ← connect only after login
     socket.emit("register_user", loggedInUserId);
   }, [loggedInUserId]);
 
