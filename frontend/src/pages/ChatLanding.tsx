@@ -133,7 +133,7 @@ const ChatPreviewCard = ({ compact = false }: { compact?: boolean }) => {
       <div style={{ padding:"12px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:9, background:"rgba(255,255,255,0.02)" }}>
         <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#00f5a0,#00d9f5)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#000", flexShrink:0 }}>T</div>
         <div>
-          <div style={{ color:"#fff", fontSize:13, fontWeight:600 }}>Tunde A.</div>
+          <div style={{ color:"#fff", fontSize:13, fontWeight:600 }}>Usman o.</div>
           <div style={{ display:"flex", alignItems:"center", gap:4 }}>
             <motion.div animate={{ opacity:[1,0.3,1] }} transition={{ duration:1.6, repeat:Infinity }} style={{ width:5, height:5, borderRadius:"50%", background:"#00f5a0" }} />
             <span style={{ color:"#00f5a0", fontSize:10 }}>Online</span>
