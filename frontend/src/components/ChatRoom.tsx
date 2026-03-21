@@ -69,17 +69,6 @@ const ImageAttachment = ({ url, name }: { url: string; name: string }) => (
       style={{ maxWidth: "min(240px,55vw)", maxHeight: "clamp(120px,22vw,200px)", width: "100%", objectFit: "cover", borderRadius: "clamp(8px,1.5vw,14px)", display: "block", cursor: "pointer" }}
       onClick={() => window.open(url, "_blank")}
     />
-    {/* Download overlay button */}
-    <motion.button
-      whileHover={{ opacity: 1 }} initial={{ opacity: 0 }} animate={{ opacity: 0 }}
-      whileFocus={{ opacity: 1 }}
-      onClick={() => downloadFile(url, name)}
-      style={{ position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 8, background: "rgba(0,0,0,0.6)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", backdropFilter: "blur(8px)" }}
-      className="download-btn"
-    >
-      <FiDownload size={13} />
-    </motion.button>
-    {/* Always-visible small download under image */}
     <button onClick={() => downloadFile(url, name)}
       style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 11, fontFamily: "'DM Sans',sans-serif", padding: 0 }}>
       <FiDownload size={11} /> Download
@@ -109,10 +98,7 @@ const DocumentAttachment = ({ url, name, sizeLabel, isMe }: { url: string; name:
       <div style={{ color: isMe ? "#000" : "#fff", fontSize: "clamp(10px,2vw,12px)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
       {sizeLabel && <div style={{ color: isMe ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.35)", fontSize: "clamp(9px,1.5vw,11px)", marginTop: 1 }}>{sizeLabel}</div>}
     </div>
-    {/* Download button */}
-    <motion.button
-      whileHover={{ scale: 1.1, color: isMe ? "#000" : "#00d9f5" }}
-      whileTap={{ scale: 0.9 }}
+    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
       onClick={() => downloadFile(url, name)}
       style={{ background: "none", border: "none", cursor: "pointer", color: isMe ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", flexShrink: 0, padding: 4 }}>
       <FiDownload style={{ fontSize: "clamp(13px,2.5vw,16px)" }} />
@@ -122,49 +108,28 @@ const DocumentAttachment = ({ url, name, sizeLabel, isMe }: { url: string; name:
 
 /* ── DELETE MENU ── */
 const DeleteMenu = ({ isMe, onDeleteForMe, onDeleteForEveryone, onClose }: {
-  isMe: boolean;
-  onDeleteForMe: () => void;
-  onDeleteForEveryone: () => void;
-  onClose: () => void;
+  isMe: boolean; onDeleteForMe: () => void; onDeleteForEveryone: () => void; onClose: () => void;
 }) => (
   <AnimatePresence>
     <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: 6 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: 6 }}
+      initial={{ opacity: 0, scale: 0.9, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 6 }}
       transition={{ type: "spring", stiffness: 400, damping: 26 }}
-      style={{
-        position: "absolute", bottom: "calc(100% + 6px)",
-        ...(isMe ? { right: 0 } : { left: 0 }),
-        zIndex: 50,
-        background: "rgba(7,10,15,0.97)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.09)",
-        borderRadius: 12, overflow: "hidden",
-        boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
-        minWidth: 180,
-      }}
+      style={{ position: "absolute", bottom: "calc(100% + 6px)", ...(isMe ? { right: 0 } : { left: 0 }), zIndex: 50, background: "rgba(7,10,15,0.97)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, overflow: "hidden", boxShadow: "0 12px 36px rgba(0,0,0,0.6)", minWidth: 180 }}
     >
-      {/* Click-away */}
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: -1 }} />
-
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#ff4d6a,#7b2fff)" }} />
-
       <button onClick={() => { onDeleteForMe(); onClose(); }}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", color: "rgba(255,255,255,0.75)", fontSize: 13, textAlign: "left" }}
         onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-        onMouseLeave={e => (e.currentTarget.style.background = "none")}
-      >
+        onMouseLeave={e => (e.currentTarget.style.background = "none")}>
         <FiTrash2 size={14} style={{ color: "#f5c400", flexShrink: 0 }} />
         Delete for me
       </button>
-
       {isMe && (
         <button onClick={() => { onDeleteForEveryone(); onClose(); }}
           style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", color: "rgba(255,255,255,0.75)", fontSize: 13, textAlign: "left", borderTop: "1px solid rgba(255,255,255,0.05)" }}
           onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,77,106,0.08)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "none")}
-        >
+          onMouseLeave={e => (e.currentTarget.style.background = "none")}>
           <FiTrash2 size={14} style={{ color: "#ff4d6a", flexShrink: 0 }} />
           Delete for everyone
         </button>
@@ -174,20 +139,13 @@ const DeleteMenu = ({ isMe, onDeleteForMe, onDeleteForEveryone, onClose }: {
 );
 
 /* ── MESSAGE BUBBLE ── */
-const MessageBubble = ({
-  msg, otherAvatar, myAvatar,
-  onDeleteForMe, onDeleteForEveryone,
-}: {
-  msg: Message;
-  otherAvatar?: string;
-  myAvatar?: string;
-  onDeleteForMe: (id: string) => void;
-  onDeleteForEveryone: (id: string) => void;
+const MessageBubble = ({ msg, otherAvatar, myAvatar, onDeleteForMe, onDeleteForEveryone }: {
+  msg: Message; otherAvatar?: string; myAvatar?: string;
+  onDeleteForMe: (id: string) => void; onDeleteForEveryone: (id: string) => void;
 }) => {
   const isMe = msg.sender === "me";
   const [showDelete, setShowDelete] = useState(false);
 
-  // Deleted states
   if (msg.deletedForEveryone) {
     return (
       <div style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 8, paddingRight: isMe ? "clamp(28px,5vw,38px)" : 0, paddingLeft: !isMe ? "clamp(28px,5vw,38px)" : 0 }}>
@@ -201,92 +159,39 @@ const MessageBubble = ({
   if (msg.deletedForMe) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      style={{ display: "flex", alignItems: "flex-end", marginBottom: "clamp(5px,1.2vw,9px)", justifyContent: isMe ? "flex-end" : "flex-start", gap: "clamp(4px,1vw,8px)" }}
-    >
-      {/* Other avatar */}
+    <motion.div initial={{ opacity: 0, y: 10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      style={{ display: "flex", alignItems: "flex-end", marginBottom: "clamp(5px,1.2vw,9px)", justifyContent: isMe ? "flex-end" : "flex-start", gap: "clamp(4px,1vw,8px)" }}>
       {!isMe && (
         <img src={otherAvatar || FALLBACK_AVATAR} onError={e => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)} alt="avatar"
           style={{ width: "clamp(24px,4.5vw,32px)", height: "clamp(24px,4.5vw,32px)", borderRadius: "50%", flexShrink: 0, border: "1.5px solid rgba(0,245,160,0.2)", objectFit: "cover" }} />
       )}
-
       <div style={{ maxWidth: "clamp(62%,72%,76%)", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", position: "relative" }}>
-
-        {/* Attachments */}
         {msg.attachments?.map((att, i) => {
-          if (att.type === "image")    return <ImageAttachment    key={i} url={att.url} name={att.name} />;
-          if (att.type === "video")    return <VideoAttachment    key={i} url={att.url} name={att.name} />;
+          if (att.type === "image") return <ImageAttachment key={i} url={att.url} name={att.name} />;
+          if (att.type === "video") return <VideoAttachment key={i} url={att.url} name={att.name} />;
           return <DocumentAttachment key={i} url={att.url} name={att.name} sizeLabel={att.sizeLabel} isMe={isMe} />;
         })}
-
-        {/* Text bubble + long-press / right-click to delete */}
         {msg.text && (
           <div style={{ position: "relative" }}>
-            <motion.div
-              onContextMenu={e => { e.preventDefault(); setShowDelete(p => !p); }}
-              whileTap={{ scale: 0.98 }}
-              style={{
-                background: isMe ? "linear-gradient(135deg,#00f5a0,#00d9f5)" : "rgba(255,255,255,0.07)",
-                color: isMe ? "#000" : "#fff",
-                padding: "clamp(6px,1.8vw,10px) clamp(10px,2.5vw,16px)",
-                borderRadius: isMe ? "clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(3px,0.8vw,5px) clamp(14px,3vw,18px)" : "clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(3px,0.8vw,5px)",
-                fontSize: "clamp(11.5px,2.8vw,14.5px)",
-                fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif",
-                fontWeight: isMe ? 500 : 400,
-                lineHeight: 1.6,
-                letterSpacing: "0.01em",
-                border: !isMe ? "1px solid rgba(255,255,255,0.07)" : "none",
-                boxShadow: isMe ? "0 2px 12px rgba(0,245,160,0.18)" : "0 1px 6px rgba(0,0,0,0.25)",
-                wordBreak: "break-word",
-                cursor: "context-menu",
-                userSelect: "text",
-              }}
-            >
+            <motion.div onContextMenu={e => { e.preventDefault(); setShowDelete(p => !p); }} whileTap={{ scale: 0.98 }}
+              style={{ background: isMe ? "linear-gradient(135deg,#00f5a0,#00d9f5)" : "rgba(255,255,255,0.07)", color: isMe ? "#000" : "#fff", padding: "clamp(6px,1.8vw,10px) clamp(10px,2.5vw,16px)", borderRadius: isMe ? "clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(3px,0.8vw,5px) clamp(14px,3vw,18px)" : "clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(14px,3vw,18px) clamp(3px,0.8vw,5px)", fontSize: "clamp(11.5px,2.8vw,14.5px)", fontFamily: "'Plus Jakarta Sans','DM Sans',sans-serif", fontWeight: isMe ? 500 : 400, lineHeight: 1.6, letterSpacing: "0.01em", border: !isMe ? "1px solid rgba(255,255,255,0.07)" : "none", boxShadow: isMe ? "0 2px 12px rgba(0,245,160,0.18)" : "0 1px 6px rgba(0,0,0,0.25)", wordBreak: "break-word", cursor: "context-menu", userSelect: "text" }}>
               {msg.text}
             </motion.div>
-
-            {/* Delete icon — shows on hover */}
-            <motion.button
-              onClick={() => setShowDelete(p => !p)}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              style={{
-                position: "absolute",
-                top: "50%", transform: "translateY(-50%)",
-                ...(isMe ? { left: -28 } : { right: -28 }),
-                background: "none", border: "none",
-                color: "rgba(255,255,255,0.2)", cursor: "pointer",
-                display: "flex", alignItems: "center", padding: 4,
-                transition: "color 0.15s",
-              }}
+            <motion.button onClick={() => setShowDelete(p => !p)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", ...(isMe ? { left: -28 } : { right: -28 }), background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", display: "flex", alignItems: "center", padding: 4 }}
               onMouseEnter={e => (e.currentTarget.style.color = "#ff4d6a")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
-            >
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
               <FiTrash2 size={13} />
             </motion.button>
-
-            {/* Delete context menu */}
             {showDelete && (
-              <DeleteMenu
-                isMe={isMe}
-                onDeleteForMe={() => onDeleteForMe(msg.id)}
-                onDeleteForEveryone={() => onDeleteForEveryone(msg.id)}
-                onClose={() => setShowDelete(false)}
-              />
+              <DeleteMenu isMe={isMe} onDeleteForMe={() => onDeleteForMe(msg.id)} onDeleteForEveryone={() => onDeleteForEveryone(msg.id)} onClose={() => setShowDelete(false)} />
             )}
           </div>
         )}
-
-        {/* Timestamp */}
         <span style={{ fontSize: "clamp(9px,1.8vw,10.5px)", color: "rgba(255,255,255,0.22)", marginTop: "clamp(2px,0.5vw,4px)", paddingLeft: isMe ? 0 : 3, paddingRight: isMe ? 3 : 0, fontFamily: "'DM Sans',sans-serif", letterSpacing: "0.02em" }}>
           {msg.time}
         </span>
       </div>
-
-      {/* My avatar */}
       {isMe && (
         <img src={myAvatar || FALLBACK_AVATAR} alt="me"
           style={{ width: "clamp(24px,4.5vw,32px)", height: "clamp(24px,4.5vw,32px)", borderRadius: "50%", flexShrink: 0, border: "1.5px solid rgba(0,217,245,0.3)", objectFit: "cover" }} />
@@ -324,7 +229,6 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat?.messages]);
 
-  // ── Listen for delete-for-everyone events from the other person ──────────────
   useEffect(() => {
     const handleDeletedForEveryone = ({ messageId }: { messageId: string }) => {
       setConversations(prev => prev.map(conv => ({
@@ -340,7 +244,6 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
 
   const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value);
 
-  // ── Delete for me (local only) ────────────────────────────────────────────────
   const handleDeleteForMe = (msgId: string) => {
     setConversations(prev => prev.map(conv =>
       conv._id === activeChat?._id
@@ -349,25 +252,17 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
     ));
   };
 
-  // ── Delete for everyone (socket + backend) ────────────────────────────────────
   const handleDeleteForEveryone = async (msgId: string) => {
-    // Optimistic local update
     setConversations(prev => prev.map(conv =>
       conv._id === activeChat?._id
         ? { ...conv, messages: conv.messages.map(m => m.id === msgId ? { ...m, deletedForEveryone: true, text: "", attachments: [] } : m) }
         : conv
     ));
-
     try {
       const token = localStorage.getItem("token");
-      // Delete from DB
       await api.delete(`/messages/${msgId}`, { headers: { Authorization: `Bearer ${token}` } });
-      // Notify receiver via socket
       if (activeChat) {
-        socket.emit("delete_message_for_everyone", {
-          messageId: msgId,
-          receiverId: activeChat._id,
-        });
+        socket.emit("delete_message_for_everyone", { messageId: msgId, receiverId: activeChat._id });
       }
     } catch {
       error("Failed to delete", "Could not delete the message. Please try again.");
@@ -480,27 +375,75 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
       <NotificationContainer />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+        /* ── Safari safe area support ── */
+        .chat-root {
+          display: flex;
+          flex-direction: column;
+          background: #070a0f;
+          height: 100vh;
+          height: 100dvh; /* dynamic viewport — respects Safari chrome */
+          font-family: 'DM Sans', sans-serif;
+          position: relative;
+        }
+        .chat-header {
+          /* Push header below Safari notch / status bar */
+          padding-top: max(clamp(10px,2vw,14px), env(safe-area-inset-top));
+          padding-bottom: clamp(10px,2vw,14px);
+          padding-left: max(clamp(12px,3vw,20px), env(safe-area-inset-left));
+          padding-right: max(clamp(12px,3vw,20px), env(safe-area-inset-right));
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: rgba(7,10,15,0.95);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          position: relative;
+          z-index: 10;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .chat-input-bar {
+          border-top: 1px solid rgba(255,255,255,0.06);
+          padding-top: clamp(8px,2vw,12px);
+          padding-bottom: max(clamp(8px,2vw,12px), env(safe-area-inset-bottom));
+          padding-left: max(clamp(8px,2vw,16px), env(safe-area-inset-left));
+          padding-right: max(clamp(8px,2vw,16px), env(safe-area-inset-right));
+          background: rgba(255,255,255,0.02);
+          flex-shrink: 0;
+        }
+        .messages-scroll {
+          flex: 1;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+          padding: clamp(12px,3vw,20px) clamp(14px,3vw,24px) 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          background: radial-gradient(ellipse at 50% 0%, rgba(0,245,160,0.03) 0%, transparent 60%), #070a0f;
+        }
         .messages-scroll::-webkit-scrollbar { width: 4px; }
         .messages-scroll::-webkit-scrollbar-track { background: transparent; }
         .messages-scroll::-webkit-scrollbar-thumb { background: rgba(0,245,160,0.15); border-radius: 4px; }
-        .msg-bubble-wrap:hover .delete-btn { opacity: 1 !important; }
       `}</style>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#070a0f", height: "100vh", fontFamily: "'DM Sans',sans-serif", position: "relative" }}>
+      <div className="chat-root">
 
         {/* HEADER */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "clamp(10px,2vw,14px) clamp(12px,3vw,20px)", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", backdropFilter: "blur(20px)", position: "relative", zIndex: 10, flexShrink: 0 }}>
+        <motion.div
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+          className="chat-header"
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <motion.button whileHover={{ scale: 1.08, background: "rgba(255,255,255,0.08)" }} whileTap={{ scale: 0.94 }}
               onClick={onBack} className="lg:hidden"
-              style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#00f5a0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14 }}>
+              style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#00f5a0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, flexShrink: 0 }}>
               <FaChevronLeft />
             </motion.button>
             <div style={{ position: "relative" }}>
               <motion.button whileHover={{ scale: 1.08, background: "rgba(255,255,255,0.08)" }} whileTap={{ scale: 0.94 }}
                 onClick={() => setShowMenu(p => !p)}
-                style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18 }}>
+                style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18 }}>
                 <RxHamburgerMenu />
               </motion.button>
               <ChatMenuDropdown isOpen={showMenu} onClose={() => setShowMenu(false)} onRemoveFriend={handleRemoveFriend} onReport={() => setShowReportModal(true)} onClearChats={handleClearChat} />
@@ -510,7 +453,7 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
           <motion.div key={currentChat._id} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ position: "relative" }}>
               <img src={currentChat.avatar || FALLBACK_AVATAR} onError={e => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)}
-                style={{ width: "clamp(30px,5vw,38px)", height: "clamp(30px,5vw,38px)", borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,245,160,0.3)" }} alt="chat avatar" />
+                style={{ width: "clamp(32px,5vw,40px)", height: "clamp(32px,5vw,40px)", borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,245,160,0.3)" }} alt="chat avatar" />
               <div style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: "#00f5a0", border: "2px solid #070a0f" }} />
             </div>
             <div>
@@ -519,7 +462,7 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
             </div>
           </motion.div>
 
-          <div style={{ width: 34 }} />
+          <div style={{ width: 36 }} />
         </motion.div>
 
         {/* Upload indicator */}
@@ -535,9 +478,7 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
         </AnimatePresence>
 
         {/* MESSAGES */}
-        <div className="messages-scroll"
-          style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,3vw,20px) clamp(14px,3vw,24px) 10px", display: "flex", flexDirection: "column", gap: 2, background: "radial-gradient(ellipse at 50% 0%, rgba(0,245,160,0.03) 0%, transparent 60%), #070a0f" }}>
-
+        <div className="messages-scroll">
           {currentChat.messages.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 16px" }}>
               <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
@@ -557,20 +498,14 @@ const ChatRoom = ({ activeChat, conversations, setConversations, loggedInUser, m
           )}
 
           {currentChat.messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              otherAvatar={currentChat.avatar}
-              myAvatar={myAvatar}
-              onDeleteForMe={handleDeleteForMe}
-              onDeleteForEveryone={handleDeleteForEveryone}
-            />
+            <MessageBubble key={msg.id} msg={msg} otherAvatar={currentChat.avatar} myAvatar={myAvatar}
+              onDeleteForMe={handleDeleteForMe} onDeleteForEveryone={handleDeleteForEveryone} />
           ))}
           <div ref={messagesEndRef} />
         </div>
 
         {/* INPUT */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "clamp(8px,2vw,12px) clamp(8px,2vw,16px)", background: "rgba(255,255,255,0.02)", flexShrink: 0 }}>
+        <div className="chat-input-bar">
           <ChatInput message={message} textareaRef={textareaRef} handleInput={handleInput} onSend={handleSend} />
         </div>
 

@@ -15,7 +15,7 @@ type SocketMessage = {
   to: string;
   text: string;
   createdAt: string;
-  attachments?: {           // ← add this
+  attachments?: {
     type: "image" | "video" | "document";
     url: string;
     name: string;
@@ -37,6 +37,18 @@ const sortConversations = (convs: Conversation[]): Conversation[] =>
     return new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime();
   });
 
+// ── Dedupe conversations by _id — always keep the one with more messages ───────
+const dedupeConversations = (convs: Conversation[]): Conversation[] => {
+  const map = new Map<string, Conversation>();
+  convs.forEach(conv => {
+    const existing = map.get(conv._id);
+    if (!existing || conv.messages.length > existing.messages.length) {
+      map.set(conv._id, conv);
+    }
+  });
+  return Array.from(map.values());
+};
+
 const ChatHome = () => {
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -45,27 +57,19 @@ const ChatHome = () => {
 
   const { notify } = useNotification();
 
-  const [conversations, setConversations]           = useState<Conversation[]>([]);
-  const [activeChat, setActiveChat]                 = useState<Conversation | null>(null);
-  const [chatLoading, setChatLoading]               = useState(false);
+  const [conversations, setConversations]     = useState<Conversation[]>([]);
+  const [activeChat, setActiveChat]           = useState<Conversation | null>(null);
+  const [chatLoading, setChatLoading]         = useState(false);
   const [showChatRoomMobile, setShowChatRoomMobile] = useState(false);
-  const [loaded, setLoaded]                         = useState(false);
-  const [unreadCounts, setUnreadCounts]             = useState<Record<string, number>>({});
-  const [pendingRequests, setPendingRequests]       = useState(0);
+  const [loaded, setLoaded]                   = useState(false);
+  const [unreadCounts, setUnreadCounts]       = useState<Record<string, number>>({});
+  const [pendingRequests, setPendingRequests] = useState(0);
 
-  // useRef — always holds the latest value, readable inside any socket
-  // closure without going stale. useCallback does NOT solve this.
   const activeChatIdRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    activeChatIdRef.current = activeChat?._id;
-  }, [activeChat]);
+  useEffect(() => { activeChatIdRef.current = activeChat?._id; }, [activeChat]);
 
-  // Keeps a mirror of conversations for reading inside socket handlers
-  // without needing conversations in the socket effect's dep array
   const conversationsRef = useRef<Conversation[]>([]);
-  useEffect(() => {
-    conversationsRef.current = conversations;
-  }, [conversations]);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
   /* ── LOAD CONVERSATIONS ── */
   useEffect(() => {
@@ -109,6 +113,7 @@ const ChatHome = () => {
               sender: msg.senderId === loggedInUserId ? "me" : "other",
               time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               rawTime: msg.createdAt,
+              attachments: msg.attachments ?? [],
             }));
 
           const lastMsg = convMessages.at(-1);
@@ -121,7 +126,9 @@ const ChatHome = () => {
           };
         });
 
-        setConversations(sortConversations(conversationsWithMessages));
+        // ── Dedupe before setting — prevents duplicates from the API itself ──
+        const deduped = dedupeConversations(conversationsWithMessages);
+        setConversations(sortConversations(deduped));
         setLoaded(true);
       } catch (err) {
         console.error(err);
@@ -133,18 +140,15 @@ const ChatHome = () => {
   }, [loggedInUserId]);
 
   /* ── SOCKET REGISTER ── */
-
-
   useEffect(() => {
     if (!loggedInUserId) return;
-    socket.connect();             // ← connect only after login
+    socket.connect();
     socket.emit("register_user", loggedInUserId);
   }, [loggedInUserId]);
 
   /* ── SOCKET: RECEIVE MESSAGE ── */
   useEffect(() => {
     const handleReceiveMessage = (msg: SocketMessage) => {
-      // Only handle messages sent by someone else
       if (msg.from === loggedInUserId) return;
 
       const displayTime = new Date(msg.createdAt).toLocaleTimeString([], {
@@ -156,17 +160,15 @@ const ChatHome = () => {
         text: msg.text,
         sender: "other",
         time: displayTime,
-        attachments: msg.attachments ?? [],  // ← add this
+        attachments: msg.attachments ?? [],
       };
 
-      // Read sender name from the ref — avoids a second setState call
       const senderName = conversationsRef.current.find(c => c._id === msg.from)?.name ?? "New message";
 
-      // One single setState — update + re-sort in one pass
       setConversations(prev => {
         const updated = prev.map(conv => {
           if (conv._id !== msg.from) return conv;
-          if (conv.messages.some(m => m.id === msg.messageId)) return conv; // dedupe
+          if (conv.messages.some(m => m.id === msg.messageId)) return conv;
           return {
             ...conv,
             lastMessage: msg.text || `📎 ${msg.attachments?.[0]?.name ?? "File"}`,
@@ -178,15 +180,12 @@ const ChatHome = () => {
         return sortConversations(updated);
       });
 
-      // Read the ref directly — always current, never stale
       const isOpenChat = activeChatIdRef.current === msg.from;
-
       if (!isOpenChat) {
         setUnreadCounts(prev => ({
           ...prev,
           [msg.from]: (prev[msg.from] || 0) + 1,
         }));
-
         notify({
           type: "info",
           title: senderName,
@@ -197,7 +196,6 @@ const ChatHome = () => {
 
     socket.on("receive_message", handleReceiveMessage);
     return () => { socket.off("receive_message", handleReceiveMessage); };
-    // activeChatIdRef + conversationsRef are refs — stable, no need in deps
   }, [loggedInUserId, notify]);
 
   /* ── SOCKET: FRIEND REQUEST RECEIVED ── */
@@ -222,20 +220,24 @@ const ChatHome = () => {
         title: "Friend Request Accepted",
         message: `${data.byName} accepted your friend request!`,
       });
-      const newConv: Conversation = {
-        _id: data.byId,
-        name: data.byName,
-        avatar: data.byAvatar || FALLBACK_AVATAR,
-        lastMessage: "",
-        time: "",
-        rawTime: "",
-        messages: [],
-      };
+
       setConversations(prev => {
+        // ── Strict dedupe: if this user already exists anywhere, skip ──────
         if (prev.some(c => c._id === data.byId)) return prev;
+
+        const newConv: Conversation = {
+          _id: data.byId,
+          name: data.byName,
+          avatar: data.byAvatar || FALLBACK_AVATAR,
+          lastMessage: "",
+          time: "",
+          rawTime: "",
+          messages: [],
+        };
         return sortConversations([...prev, newConv]);
       });
     };
+
     socket.on("friend_request_accepted", handleRequestAccepted);
     return () => { socket.off("friend_request_accepted", handleRequestAccepted); };
   }, [notify]);

@@ -342,16 +342,19 @@ const addFriend = async (req, res) => {
     if (!friendId) return res.status(400).json({ message: "friendId required" });
     if (userId === friendId) return res.status(400).json({ message: "You cannot add yourself" });
 
-    const user = await userModel.findById(userId);
+    const user   = await userModel.findById(userId);
     const friend = await userModel.findById(friendId);
 
     if (!friend) return res.status(404).json({ message: "User not found" });
-    if (user.friends.includes(friendId)) return res.status(400).json({ message: "Already friends" });
 
-    user.friends.push(friendId);
-    friend.friends.push(userId);
-    await user.save();
-    await friend.save();
+    // Check if already friends (compare as strings to avoid ObjectId mismatch)
+    if (user.friends.map((id) => id.toString()).includes(friendId)) {
+      return res.status(400).json({ message: "Already friends" });
+    }
+
+    // $addToSet never inserts a duplicate — safe to call multiple times
+    await userModel.findByIdAndUpdate(userId,   { $addToSet: { friends: friendId } });
+    await userModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId   } });
 
     res.status(200).json({ message: "Friend added", friendId });
   } catch (err) {
