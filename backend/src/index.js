@@ -25,7 +25,9 @@ app.use("/user",     require("./Route/UserRoute"));
 app.use("/messages", require("./Route/MessageRoute"));
 app.use("/admin",    require("./Route/AdminRoute"));
 
-app.get("/ping", (req, res) => res.send("pong"));  
+const port = process.env.PORT || 5002;  // ← fixed
+
+app.get("/ping", (req, res) => res.send("pong"));
 
 app.get("/", (req, res) => {
     res.send('connected')
