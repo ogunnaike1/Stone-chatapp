@@ -37,7 +37,6 @@ const sortConversations = (convs: Conversation[]): Conversation[] =>
     return new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime();
   });
 
-// ── Dedupe conversations by _id — always keep the one with more messages ───────
 const dedupeConversations = (convs: Conversation[]): Conversation[] => {
   const map = new Map<string, Conversation>();
   convs.forEach(conv => {
@@ -49,6 +48,17 @@ const dedupeConversations = (convs: Conversation[]): Conversation[] => {
   return Array.from(map.values());
 };
 
+/* ── hook: is desktop (>= 1024px) ── */
+const useIsDesktop = () => {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  useEffect(() => {
+    const fn = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return isDesktop;
+};
+
 const ChatHome = () => {
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -56,14 +66,15 @@ const ChatHome = () => {
   const myAvatar = user?.profilePicture || FALLBACK_AVATAR;
 
   const { notify } = useNotification();
+  const isDesktop = useIsDesktop();
 
-  const [conversations, setConversations]     = useState<Conversation[]>([]);
-  const [activeChat, setActiveChat]           = useState<Conversation | null>(null);
-  const [chatLoading, setChatLoading]         = useState(false);
+  const [conversations, setConversations]           = useState<Conversation[]>([]);
+  const [activeChat, setActiveChat]                 = useState<Conversation | null>(null);
+  const [chatLoading, setChatLoading]               = useState(false);
   const [showChatRoomMobile, setShowChatRoomMobile] = useState(false);
-  const [loaded, setLoaded]                   = useState(false);
-  const [unreadCounts, setUnreadCounts]       = useState<Record<string, number>>({});
-  const [pendingRequests, setPendingRequests] = useState(0);
+  const [loaded, setLoaded]                         = useState(false);
+  const [unreadCounts, setUnreadCounts]             = useState<Record<string, number>>({});
+  const [pendingRequests, setPendingRequests]       = useState(0);
 
   const activeChatIdRef = useRef<string | undefined>(undefined);
   useEffect(() => { activeChatIdRef.current = activeChat?._id; }, [activeChat]);
@@ -74,11 +85,9 @@ const ChatHome = () => {
   /* ── LOAD CONVERSATIONS ── */
   useEffect(() => {
     if (!loggedInUserId) return;
-
     const loadConversations = async () => {
       try {
         const token = localStorage.getItem("token");
-
         const friendsRes = await api.get("/user/friends", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -98,7 +107,6 @@ const ChatHome = () => {
         const messagesRes = await api.get(`/messages/all/${loggedInUserId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         const rawMessages = messagesRes.data;
 
         const conversationsWithMessages = friends.map((conv) => {
@@ -126,7 +134,6 @@ const ChatHome = () => {
           };
         });
 
-        // ── Dedupe before setting — prevents duplicates from the API itself ──
         const deduped = dedupeConversations(conversationsWithMessages);
         setConversations(sortConversations(deduped));
         setLoaded(true);
@@ -135,7 +142,6 @@ const ChatHome = () => {
         setLoaded(true);
       }
     };
-
     loadConversations();
   }, [loggedInUserId]);
 
@@ -150,21 +156,12 @@ const ChatHome = () => {
   useEffect(() => {
     const handleReceiveMessage = (msg: SocketMessage) => {
       if (msg.from === loggedInUserId) return;
-
-      const displayTime = new Date(msg.createdAt).toLocaleTimeString([], {
-        hour: "2-digit", minute: "2-digit",
-      });
-
+      const displayTime = new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const incoming: Message = {
-        id: msg.messageId,
-        text: msg.text,
-        sender: "other",
-        time: displayTime,
-        attachments: msg.attachments ?? [],
+        id: msg.messageId, text: msg.text, sender: "other",
+        time: displayTime, attachments: msg.attachments ?? [],
       };
-
       const senderName = conversationsRef.current.find(c => c._id === msg.from)?.name ?? "New message";
-
       setConversations(prev => {
         const updated = prev.map(conv => {
           if (conv._id !== msg.from) return conv;
@@ -172,28 +169,21 @@ const ChatHome = () => {
           return {
             ...conv,
             lastMessage: msg.text || `📎 ${msg.attachments?.[0]?.name ?? "File"}`,
-            time: displayTime,
-            rawTime: msg.createdAt,
+            time: displayTime, rawTime: msg.createdAt,
             messages: [...conv.messages, incoming],
           };
         });
         return sortConversations(updated);
       });
-
       const isOpenChat = activeChatIdRef.current === msg.from;
       if (!isOpenChat) {
-        setUnreadCounts(prev => ({
-          ...prev,
-          [msg.from]: (prev[msg.from] || 0) + 1,
-        }));
+        setUnreadCounts(prev => ({ ...prev, [msg.from]: (prev[msg.from] || 0) + 1 }));
         notify({
-          type: "info",
-          title: senderName,
+          type: "info", title: senderName,
           message: msg.text.length > 60 ? msg.text.slice(0, 60) + "…" : msg.text,
         });
       }
     };
-
     socket.on("receive_message", handleReceiveMessage);
     return () => { socket.off("receive_message", handleReceiveMessage); };
   }, [loggedInUserId, notify]);
@@ -202,11 +192,7 @@ const ChatHome = () => {
   useEffect(() => {
     const handleFriendRequest = (req: FriendRequest) => {
       setPendingRequests(p => p + 1);
-      notify({
-        type: "info",
-        title: "Friend Request",
-        message: `${req.fromName} sent you a friend request`,
-      });
+      notify({ type: "info", title: "Friend Request", message: `${req.fromName} sent you a friend request` });
     };
     socket.on("friend_request_received", handleFriendRequest);
     return () => { socket.off("friend_request_received", handleFriendRequest); };
@@ -215,29 +201,17 @@ const ChatHome = () => {
   /* ── SOCKET: FRIEND REQUEST ACCEPTED ── */
   useEffect(() => {
     const handleRequestAccepted = (data: { byId: string; byName: string; byAvatar: string | null }) => {
-      notify({
-        type: "success",
-        title: "Friend Request Accepted",
-        message: `${data.byName} accepted your friend request!`,
-      });
-
+      notify({ type: "success", title: "Friend Request Accepted", message: `${data.byName} accepted your friend request!` });
       setConversations(prev => {
-        // ── Strict dedupe: if this user already exists anywhere, skip ──────
         if (prev.some(c => c._id === data.byId)) return prev;
-
         const newConv: Conversation = {
-          _id: data.byId,
-          name: data.byName,
+          _id: data.byId, name: data.byName,
           avatar: data.byAvatar || FALLBACK_AVATAR,
-          lastMessage: "",
-          time: "",
-          rawTime: "",
-          messages: [],
+          lastMessage: "", time: "", rawTime: "", messages: [],
         };
         return sortConversations([...prev, newConv]);
       });
     };
-
     socket.on("friend_request_accepted", handleRequestAccepted);
     return () => { socket.off("friend_request_accepted", handleRequestAccepted); };
   }, [notify]);
@@ -253,16 +227,60 @@ const ChatHome = () => {
 
   const handleBack = () => setShowChatRoomMobile(false);
 
-  const handleClearPendingRequests = useCallback(() => {
-    setPendingRequests(0);
-  }, []);
+  const handleClearPendingRequests = useCallback(() => { setPendingRequests(0); }, []);
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #root { height: 100%; }
         body { background: #070a0f; overflow: hidden; }
+
+        /* ── Desktop layout ── */
+        .chathome-desktop {
+          display: flex;
+          height: 100vh;
+          width: 100%;
+        }
+        .chathome-sidebar {
+          width: 30vw;
+          min-width: 260px;
+          max-width: 380px;
+          flex-shrink: 0;
+          height: 100vh;
+          border-right: 1px solid rgba(255,255,255,0.06);
+          overflow: hidden;
+        }
+        .chathome-main {
+          flex: 1;
+          height: 100vh;
+          overflow: hidden;
+          display: flex;
+          position: relative;
+          min-width: 0;
+        }
+
+        /* ── Mobile layout ── */
+        .chathome-mobile {
+          display: none;
+          height: 100vh;
+          width: 100%;
+          position: relative;
+          overflow: hidden;
+        }
+
+        /* ── Breakpoint ── */
+        @media (max-width: 1023px) {
+          .chathome-desktop { display: none !important; }
+          .chathome-mobile  { display: block !important; }
+        }
+        @media (min-width: 1024px) {
+          .chathome-desktop { display: flex !important; }
+          .chathome-mobile  { display: none !important; }
+          /* hide back button on desktop */
+          .back-btn-mobile  { display: none !important; }
+        }
       `}</style>
 
       <motion.div
@@ -271,12 +289,13 @@ const ChatHome = () => {
         transition={{ duration: 0.4 }}
         style={{ height: "100vh", width: "100vw", overflow: "hidden", background: "#070a0f", fontFamily: "'DM Sans', sans-serif" }}
       >
-        {/* DESKTOP */}
-        <div className="hidden lg:flex" style={{ height: "100vh", width: "100%" }}>
+
+        {/* ══ DESKTOP ══ */}
+        <div className="chathome-desktop">
           <motion.div
             initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            style={{ width: "30vw", flexShrink: 0, height: "100vh", borderRight: "1px solid rgba(255,255,255,0.06)" }}
+            className="chathome-sidebar"
           >
             <MessageList
               conversations={conversations}
@@ -291,7 +310,7 @@ const ChatHome = () => {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            style={{ flex: 1, height: "100vh", overflow: "hidden", display: "flex", position: "relative" }}
+            className="chathome-main"
           >
             <AnimatePresence>
               {chatLoading && (
@@ -313,8 +332,9 @@ const ChatHome = () => {
           </motion.div>
         </div>
 
-        {/* MOBILE */}
-        <div className="block lg:hidden" style={{ height: "100vh", width: "100%", position: "relative", overflow: "hidden" }}>
+        {/* ══ MOBILE ══ */}
+        <div className="chathome-mobile">
+          {/* Message list always underneath */}
           <div style={{ position: "absolute", inset: 0 }}>
             <MessageList
               conversations={conversations}
@@ -326,13 +346,18 @@ const ChatHome = () => {
             />
           </div>
 
+          {/* Chat room slides in from right */}
           <AnimatePresence>
             {showChatRoomMobile && (
               <motion.div
                 key="mobile-chatroom"
                 initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.9 }}
-                style={{ position: "absolute", inset: 0, zIndex: 100, background: "#070a0f", willChange: "transform" }}
+                style={{
+                  position: "absolute", inset: 0, zIndex: 100,
+                  background: "#070a0f", willChange: "transform",
+                  display: "flex", flexDirection: "column",
+                }}
               >
                 <AnimatePresence>
                   {chatLoading && (
@@ -356,6 +381,7 @@ const ChatHome = () => {
             )}
           </AnimatePresence>
         </div>
+
       </motion.div>
     </>
   );
