@@ -87,10 +87,11 @@ const LoginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid password", status: false });
     }
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d"  });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
 
     return res.status(200).json({
       token,
+      loginTime: new Date().toISOString(), // ← absolute session start timestamp
       message: "Login successful",
       status: true,
       user: {

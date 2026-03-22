@@ -3,10 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import api from "../api/axios";
 
-// ── Idle timeout: log out after 15 minutes of no activity ─────────────────────
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;       // 15 minutes idle
+const SEVEN_DAYS_MS   = 7 * 24 * 60 * 60 * 1000; // 7 days absolute session
 
-// ── Events that count as "user is active" ─────────────────────────────────────
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
   "mousemove", "mousedown", "keydown", "touchstart", "scroll", "click",
 ];
@@ -33,6 +32,12 @@ const isTokenValid = (): boolean => {
   return true;
 };
 
+const clearSession = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("loginTime");
+};
+
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const navigate = useNavigate();
   const [valid, setValid] = useState(() => isTokenValid());
@@ -43,11 +48,25 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   useEffect(() => {
     if (!valid) return;
 
-    // 1. Track activity
+    // ── Seed loginTime if missing (handles users already logged in) ───────────
+    if (!localStorage.getItem("loginTime")) {
+      localStorage.setItem("loginTime", new Date().toISOString());
+    }
+
+    // ── Check 7-day absolute expiry immediately on mount ──────────────────────
+    const loginTime = localStorage.getItem("loginTime");
+    if (loginTime && Date.now() - new Date(loginTime).getTime() >= SEVEN_DAYS_MS) {
+      clearSession();
+      setValid(false);
+      navigate("/auth/login", { replace: true });
+      return;
+    }
+
+    // ── Track user activity ───────────────────────────────────────────────────
     const onActivity = () => { lastActivityRef.current = Date.now(); };
     ACTIVITY_EVENTS.forEach(evt => window.addEventListener(evt, onActivity, { passive: true }));
 
-    // 2. Refresh token while user is active (every 4s, debounced to max once per 5s)
+    // ── Token refresh while active (every 4s, debounced to once per 5s) ───────
     const refreshInterval = setInterval(async () => {
       const idleMs    = Date.now() - lastActivityRef.current;
       const sinceLast = Date.now() - lastRefreshRef.current;
@@ -65,12 +84,23 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
       }
     }, 4000);
 
-    // 3. Idle watchdog — checks every 10 seconds (no need to check every second for a 15-min timeout)
+    // ── Idle + 7-day watchdog (checks every 10 seconds) ───────────────────────
     const idleInterval = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current;
+      const now = Date.now();
+
+      // 7-day absolute session check
+      const stored = localStorage.getItem("loginTime");
+      if (stored && now - new Date(stored).getTime() >= SEVEN_DAYS_MS) {
+        clearSession();
+        setValid(false);
+        navigate("/auth/login", { replace: true });
+        return;
+      }
+
+      // 15-minute idle check
+      const idleMs = now - lastActivityRef.current;
       if (idleMs >= IDLE_TIMEOUT_MS) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        clearSession();
         setValid(false);
         navigate("/auth/login", { replace: true });
       }
